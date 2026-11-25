@@ -1,0 +1,11 @@
+{
+  "name": "Rent Desk",
+  "short_name": "Rent Desk",
+  "description": "Follow up rent payments and draft rental agreements.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#faf6f0",
+  "theme_color": "#476b64",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
