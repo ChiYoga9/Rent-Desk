@@ -116,8 +116,8 @@
     set: '<circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.1-1.3l2-1.5-2-3.4-2.3.9a7 7 0 00-2.3-1.3L14 3h-4l-.3 2.4a7 7 0 00-2.3 1.3l-2.3-.9-2 3.4 2 1.5a7 7 0 000 2.6l-2 1.5 2 3.4 2.3-.9a7 7 0 002.3 1.3L10 21h4l.3-2.4a7 7 0 002.3-1.3l2.3.9 2-3.4-2-1.5c.1-.4.1-.9.1-1.3z"/>'
   };
   var svg = function (k) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICON[k] + '</svg>'; };
-  var NAV = [['today', 'Today', 'today'], ['flats', 'Flats', 'flats'], ['payments', 'Rent', 'pay'], ['expenses', 'Expenses', 'exp'], ['dashboard', 'Dashboard', 'dash'], ['more', 'More', 'more']];
-  var SIDE = [['today', 'Today', 'today'], ['flats', 'Flats', 'flats'], ['payments', 'Rent', 'pay'], ['expenses', 'Expenses', 'exp'], ['dashboard', 'Dashboard', 'dash'], ['agreements', 'Agreements', 'agree'], ['settings', 'Settings', 'set']];
+  var NAV = [['dashboard', 'Dashboard', 'dash'], ['today', 'To do', 'today'], ['flats', 'Flats', 'flats'], ['payments', 'Rent', 'pay'], ['expenses', 'Expenses', 'exp'], ['more', 'More', 'more']];
+  var SIDE = [['dashboard', 'Dashboard', 'dash'], ['today', 'To do', 'today'], ['flats', 'Flats', 'flats'], ['payments', 'Rent', 'pay'], ['expenses', 'Expenses', 'exp'], ['agreements', 'Agreements', 'agree'], ['settings', 'Settings', 'set']];
 
   /* ---------- sheets (dialog) ---------- */
   var dlg = $('#dlg'), dlgBody = $('#dlgBody');
@@ -182,11 +182,8 @@
     var overdueTotal = dues.filter(function (d) { return d.status === 'overdue'; }).reduce(function (s, d) { return s + d.balance; }, 0);
     var soon = dues.filter(function (d) { return d.status === 'soon'; }).sort(function (a, b) { return a.dueDate < b.dueDate ? -1 : 1; });
     var soonTotal = soon.reduce(function (s, d) { return s + d.balance; }, 0);
-    var h = '<div class="pagehead"><div><div class="eyebrow">' + esc(C.longDate(t)) + ' <span class="syncchip" style="text-transform:none;letter-spacing:0;color:var(--muted);margin-left:8px"></span></div><h1>Today</h1></div><div class="btns"><button class="btn" data-act="newRentalPick">+ New rental</button></div></div>';
+    var h = '<div class="pagehead"><div><div class="eyebrow">' + esc(C.longDate(t)) + ' <span class="syncchip" style="text-transform:none;letter-spacing:0;color:var(--muted);margin-left:8px"></span></div><h1>To do</h1><div class="muted small">Only what needs you right now.</div></div><div class="btns"><button class="btn" data-act="newRentalPick">+ New rental</button></div></div>';
     if (!S.flats.length) return h + '<div class="card empty"><h3>Welcome to Rent Desk</h3><p>Add your flats, set up each rental with the rent and dates, and this page will tell you every morning who to follow up with. Agreements are drafted for you, ready to sign.</p><div class="btns" style="justify-content:center"><button class="btn" data-act="addFlat">Add my first flat</button><button class="btn ghost" data-act="sample">Try with sample data</button></div></div>';
-    h += '<div class="grid g3"><div class="card kpi"><div class="n">' + money(got) + '</div><div class="l">collected of ' + money(expected) + ' due in ' + esc(C.MONTHS[+mk.slice(5, 7) - 1]) + '</div><div class="bar"><i style="width:' + (expected ? Math.min(100, got / expected * 100) : 0) + '%"></i></div></div>' +
-      '<div class="card kpi' + (overdueTotal ? ' bad' : '') + '"><div class="n">' + money(overdueTotal) + '</div><div class="l">overdue now · ' + needs.filter(function (d) { return d.status === 'overdue'; }).length + ' payment(s)</div></div>' +
-      '<div class="card kpi"><div class="n">' + money(soonTotal) + '</div><div class="l">coming in the next 7 days · ' + soon.length + ' payment(s)</div></div></div>';
     var nag = S.rentals.length && (!S.settings.lastBackup || C.diffDays(t, S.settings.lastBackup) > 30);
     if (nag) h += '<div class="notice">Your data is saved on this device only. <button class="btn sm ghost" data-act="backup" style="margin-left:6px">Back up now</button></div>';
     h += '<h2>Follow up now</h2>' + (needs.length ? '<div class="stack">' + needs.map(dueCard).join('') + '</div>' : '<div class="card muted">Nothing is late. Well done.</div>');
@@ -199,6 +196,8 @@
       if (ag.status === 'sent') att.push('<div class="card row between wrapx"><div><div class="t">' + esc(f.name) + ' · ' + esc(r.tenant.name) + '</div><div class="s muted small">Agreement ' + (ag.status === 'sent' ? 'sent, waiting for signature' : ag.status === 'draft' ? 'drafted, not sent yet' : 'not drafted yet') + '</div></div><a class="btn sm ghost" href="#/agreement/' + r.id + '">' + (ag.status === 'sent' ? 'Open' : ag.status === 'draft' ? 'Open' : 'Draft it') + '</a></div>');
       if (r.end && C.diffDays(r.end, t) <= 60) att.push('<div class="card row between wrapx"><div><div class="t">' + esc(f.name) + ' · lease ends ' + esc(C.longDate(r.end)) + '</div><div class="s muted small">In ' + C.diffDays(r.end, t) + ' days. Renew or plan the handover.</div></div><button class="btn sm ghost" data-act="renew" data-r="' + r.id + '">Renew</button></div>');
     });
+    var vac = S.flats.filter(function (f) { if (f.soldDate) return false; var r = currentRental(f, t); return !r || r.depositSettlement || (r.end && r.end < t); });
+    if (vac.length) h += '<h2>Flats to let</h2><div class="stack">' + vac.map(function (f) { return '<div class="card row between wrapx"><div><div class="t">' + esc(f.name) + '</div><div class="s muted small">Vacant</div></div><button class="btn sm" data-act="newRental" data-f="' + f.id + '">Rent again</button></div>'; }).join('') + '</div>';
     if (att.length) h += '<h2>Agreements and leases</h2><div class="stack">' + att.join('') + '</div>';
     return h;
   }
@@ -292,6 +291,7 @@
   var tokenOf = function (r) { var ps = (r.payments || []).filter(function (p) { return p.method === 'Token'; }); return ps.length ? { amount: ps.reduce(function (s, p) { return s + (+p.amount); }, 0), date: ps.map(function (p) { return p.date; }).sort()[0] } : null; };
 
   function flatRow(f, t, selId) {
+    if (f.soldDate) return '<a class="frow' + (f.id === selId ? ' sel' : '') + '" href="#/flat/' + f.id + '" data-q="' + esc((f.name + ' ' + (f.address || '')).toLowerCase()) + '"><span class="av">' + esc(initials(f.name)) + '</span><span class="grow"><b>' + esc(f.name) + '</b><span class="s">Sold ' + esc(C.shortDate(f.soldDate)) + '</span></span><span class="pill grey">Sold</span></a>';
     var r = currentRental(f, t), occ = r && (!r.end || r.end >= t), sub, pill, who = f.name;
     if (occ && r.start > t) { sub = r.tenant.name + ' · from ' + C.shortDate(r.start); who = r.tenant.name; pill = '<span class="pill warn">Reserved</span>'; }
     else if (occ) {
@@ -306,7 +306,7 @@
     var t = today(), h = '<div class="pagehead"><div><h1>Flats</h1></div><div class="btns"><button class="btn" data-act="addFlat">+ Add flat</button></div></div>';
     if (!S.flats.length) return h + '<div class="card empty"><h3>No flats yet</h3><p>Add the first flat you rent out. You can add the tenant and rent right after.</p><button class="btn" data-act="addFlat">Add a flat</button></div>';
     var f = S.flats.find(function (x) { return x.id === selId; });
-    var list = '<input id="flatQ" class="search" placeholder="Search flat or tenant" value="' + esc(flatQ) + '" autocomplete="off"><div class="card flist" id="flatRows">' + S.flats.map(function (x) { return flatRow(x, t, selId); }).join('') + '</div>';
+    var list = '<input id="flatQ" class="search" placeholder="Search flat or tenant" value="' + esc(flatQ) + '" autocomplete="off"><div class="card flist" id="flatRows">' + S.flats.slice().sort(function (a, b) { return (a.soldDate ? 1 : 0) - (b.soldDate ? 1 : 0); }).map(function (x) { return flatRow(x, t, selId); }).join('') + '</div>';
     var detail = f ? flatDetail(f, rid, t) : '<div class="stu-empty">Pick a flat from the list to see the tenant, rent and details here.</div>';
     return h + '<div class="split' + (f ? ' has-sel' : '') + '"><div class="split-list">' + list + '</div><div class="split-detail">' + detail + '</div></div>';
   }
@@ -318,9 +318,10 @@
   var showAll = false;
   function flatDetail(f, rid, t) {
     var rs = flatRentals(f), r = rid ? rentalById(rid) : currentRental(f, t);
-    var h = '<a class="back flatback" href="#/flats">‹ All flats</a><div class="card"><div class="row between" style="align-items:flex-start"><div><h2 style="margin:0">' + esc(f.name) + '</h2><div class="muted small">' + esc(f.address || '') + '</div></div><button class="btn sm ghost" data-act="editFlat" data-f="' + f.id + '">Edit flat</button></div>' +
+    var h = '<a class="back flatback" href="#/flats">‹ All flats</a><div class="card"><div class="row between" style="align-items:flex-start"><div><h2 style="margin:0">' + esc(f.name) + '</h2><div class="muted small">' + esc(f.address || '') + '</div></div><div class="btns"><button class="btn sm ghost" data-act="editFlat" data-f="' + f.id + '">Edit flat</button>' + (f.soldDate ? '' : '<button class="btn sm ghost" data-act="sellFlat" data-f="' + f.id + '">Sold</button>') + '</div></div>' +
       '<details class="more"><summary>Flat information (meter codes, contacts)</summary><div style="white-space:pre-wrap;margin-top:8px">' + (f.info ? esc(f.info) : '<span class="muted small">Nothing yet. Use Edit flat to add meter codes, support numbers, Wi-Fi.</span>') + '</div>' +
       (f.info && r ? '<div class="btns" style="margin-top:10px"><button class="btn sm olive" data-act="sendInfo" data-r="' + r.id + '">Send to tenant</button></div>' : '') + '</details></div>';
+    if (f.soldDate) return h + '<div class="card"><div class="row between wrapx"><div><span class="pill grey">Sold</span> <b>' + esc(C.longDate(f.soldDate)) + '</b>' + (+f.soldPrice > 0 ? ' · ' + money(f.soldPrice) : '') + '</div><button class="btn sm ghost" data-act="unsellFlat" data-f="' + f.id + '">Undo sale</button></div>' + (f.soldNote ? '<div class="small muted" style="margin-top:6px">' + esc(f.soldNote) + '</div>' : '') + '<div class="tiny muted" style="margin-top:8px">Its rent history and expenses stay in the figures. Its recurring bills were closed on the sale date.</div></div>' + (r ? rentalBlock(f, r, t) : '');
     if (!r) return h + '<div class="card row between wrapx"><div><span class="pill grey">Vacant</span></div><button class="btn" data-act="newRental" data-f="' + f.id + '">Set up rental</button></div>';
     if (r.depositSettlement || (r.end && r.end < t)) h += '<div class="card row between wrapx" style="margin-top:12px"><div><span class="pill grey">Vacant</span> <span class="muted small">Last tenant: ' + esc(r.tenant.name) + '</span></div><button class="btn" data-act="newRental" data-f="' + f.id + '">Rent again</button></div>';
     h += rentalBlock(f, r, t);
@@ -399,9 +400,9 @@
       return '<tr><td>' + (fl ? '<a href="#/flat/' + fl.id + '">' + esc(fl.name) + '</a>' : '<span class="muted">General</span>') + '</td><td class="r">' + money(x.due) + '</td><td class="r">' + money(x.income) + '</td><td class="r">' + money(x.expenses) + '</td><td class="r">' + money(x.net) + '</td><td class="r">' + (x.outstanding ? '<span style="color:var(--bad)">' + money(x.outstanding) + '</span>' : '–') + '</td></tr>';
     }).join('') + '<tr><td><b>Total</b></td><td class="r"><b>' + money(tot.due) + '</b></td><td class="r"><b>' + money(tot.income) + '</b></td><td class="r"><b>' + money(tot.expenses) + '</b></td><td class="r"><b>' + money(tot.net) + '</b></td><td class="r"><b>' + money(tot.outstanding) + '</b></td></tr></tbody></table></div>';
     var cats = Object.keys(f.byCat).sort(function (a, b) { return f.byCat[b] - f.byCat[a]; }), cm = cats.length ? f.byCat[cats[0]] : 1;
-    var occ = S.flats.filter(function (x) { var r = currentRental(x, t); return r && (!r.end || r.end >= t) && r.start <= t; }).length, rate = f.due ? Math.min(100, Math.round((f.due - f.outstanding) / f.due * 100)) : 100;
+    var occ = S.flats.filter(function (x) { if (x.soldDate) return false; var r = currentRental(x, t); return r && (!r.end || r.end >= t) && r.start <= t; }).length, rate = f.due ? Math.min(100, Math.round((f.due - f.outstanding) / f.due * 100)) : 100;
     h += '<div class="grid g2" style="margin-top:12px"><div class="card"><h3 class="sech" style="margin-top:0">Where the money went</h3>' + (cats.length ? cats.map(function (c) { return '<div class="catrow"><div class="row between small"><span>' + esc(c) + '</span><b>' + money(f.byCat[c]) + '</b></div><div class="bar"><i style="width:' + Math.round(f.byCat[c] / cm * 100) + '%"></i></div></div>'; }).join('') : '<div class="muted small">No expenses in this period.</div>') + '</div>' +
-      '<div class="card"><h3 class="sech" style="margin-top:0">Health</h3><div class="small muted">Flats let</div><div class="amt">' + occ + ' of ' + S.flats.length + '</div><div class="small muted" style="margin-top:14px">Rent collected on time or since</div><div class="amt">' + rate + '%</div><div class="bar"><i style="width:' + rate + '%"></i></div></div></div>';
+      '<div class="card"><h3 class="sech" style="margin-top:0">Health</h3><div class="small muted">Flats let</div><div class="amt">' + occ + ' of ' + S.flats.filter(function (x) { return !x.soldDate; }).length + '</div><div class="small muted" style="margin-top:14px">Rent collected on time or since</div><div class="amt">' + rate + '%</div><div class="bar"><i style="width:' + rate + '%"></i></div></div></div>';
     return h;
   }
 
@@ -420,12 +421,24 @@
     }).join('') : '<tr><td class="muted">Nothing recorded this month.</td></tr>') + '</tbody></table></div>';
     h += '<div class="row between" style="margin-top:28px"><h3 class="sech" style="margin:0">Recurring bills</h3><button class="btn sm ghost" data-act="addBill">+ New bill</button></div><p class="muted small" style="margin:4px 0 10px">Added to expenses by themselves on their day, when you open the app.</p>';
     h += '<div class="card">' + ((expFlat ? S.bills.filter(function (b) { return b.flatId === expFlat; }) : S.bills).length ? (expFlat ? S.bills.filter(function (b) { return b.flatId === expFlat; }) : S.bills).map(function (b) {
-      return '<div class="row between wrapx brw" data-act="editBill" data-b="' + b.id + '"><div class="grow"><b>' + esc(b.name) + '</b>' + (b.active === false ? ' <span class="pill grey">Paused</span>' : '') + '<div class="tiny muted">' + esc(b.category) + ' · ' + esc(flatName(b.flatId)) + ' · ' + esc(b.freq || 'monthly') + ' on day ' + esc(b.day) + '</div></div><b>' + money(b.amount) + '</b></div>';
+      return '<div class="row between wrapx brw" data-act="editBill" data-b="' + b.id + '"><div class="grow"><b>' + esc(b.name) + '</b>' + (b.active === false ? (b.end ? ' <span class="pill ok">Paid off ' + esc(C.shortDate(b.end)) + '</span>' : ' <span class="pill grey">Paused</span>') : '') + '<div class="tiny muted">' + esc(b.category) + ' · ' + esc(flatName(b.flatId)) + ' · ' + esc(b.freq || 'monthly') + ' on day ' + esc(b.day) + '</div></div><b>' + money(b.amount) + '</b></div>';
     }).join('') : '<div class="muted small">No recurring bills. Add service charges, property tax, insurance or a loan instalment once and they appear every period.</div>') + '</div>';
     return h;
   }
-  function flatOptions() { return [['', 'Choose a flat…']].concat(S.flats.map(function (f) { return [f.id, f.name]; })); }
+  function flatOptions() { return [['', 'Choose a flat…']].concat(S.flats.map(function (f) { return [f.id, f.name + (f.soldDate ? ' (sold)' : '')]; })); }
   var defFlat = function (id) { return id || (S.flats.length === 1 ? S.flats[0].id : ''); };
+  function sellForm(id) {
+    var f = S.flats.find(function (x) { return x.id === id; }), t = today(), r = currentRental(f, t);
+    if (r && (!r.end || r.end >= t)) { toast(r.start > t ? 'A tenant is booked from ' + C.shortDate(r.start) + '. Delete or end that rental first.' : 'A tenant is still living here. End the tenancy and settle the deposit first.'); return; }
+    openForm({ title: 'Flat sold', intro: f.name + '. Recurring bills for this flat are closed on the sale date. Its history stays in your figures.', submit: 'Mark as sold',
+      fields: [{ name: 'soldDate', label: 'Sale date', type: 'date', required: true }, { name: 'soldPrice', label: 'Sale price (optional)', type: 'number', step: '0.01', min: 0 }, { name: 'soldNote', label: 'Note (optional)', full: true, hint: 'e.g. buyer, agent, what is still to settle' }],
+      values: { soldDate: t, soldPrice: '', soldNote: '' },
+      onSave: function (d) {
+        f.soldDate = d.soldDate; f.soldPrice = +d.soldPrice || 0; f.soldNote = d.soldNote;
+        S.bills.forEach(function (b) { if (b.flatId === f.id && !(b.active === false && b.end)) { b.active = false; if (!b.end || b.end > d.soldDate) b.end = d.soldDate; } });
+        toast('Marked as sold.');
+      } });
+  }
   function expenseForm(id, flatId) {
     var e = id ? S.expenses.find(function (x) { return x.id === id; }) : null;
     openForm({ title: e ? 'Edit expense' : 'Add an expense', del: e ? function () { S.expenses = S.expenses.filter(function (x) { return x.id !== id; }); } : null,
@@ -456,11 +469,14 @@
       fields: [{ name: 'name', label: 'Name', required: true, full: true, hint: 'e.g. Building service charge' }, { name: 'amount', label: 'Amount', type: 'number', step: '0.01', min: 0, required: true }, { name: 'freq', label: 'How often', type: 'select', options: [['monthly', 'Every month'], ['quarterly', 'Every 3 months'], ['yearly', 'Every year']] },
         { name: 'category', label: 'Category', type: 'select', options: EXP_CATS.map(function (c) { return [c, c]; }) }, { name: 'flatId', label: 'Flat', type: 'select', options: flatOptions(), required: true },
         { name: 'day', label: 'On day', type: 'number', min: 1, max: 31 }, { name: 'start', label: 'Starting', type: 'date', required: true },
-        { name: 'end', label: 'Ends (optional)', type: 'date', more: true }, { name: 'active', label: 'Status', type: 'select', more: true, options: [['yes', 'Active'], ['no', 'Paused']] }],
-      values: b ? Object.assign({}, b, { active: b.active === false ? 'no' : 'yes' }) : { flatId: defFlat(expFlat), freq: 'monthly', day: 1, start: today().slice(0, 7) + '-01', category: EXP_CATS[0], active: 'yes' },
+        { name: 'count', label: 'Number of payments (loan term, optional)', type: 'number', min: 1, more: true, hint: 'Fills in the end date for you.' }, { name: 'end', label: 'Ends / paid off on (optional)', type: 'date', more: true }, { name: 'active', label: 'Status', type: 'select', options: [['yes', 'Active'], ['no', 'Paused'], ['closed', 'Closed: loan paid off']], hint: 'Choose Closed when the last payment is made. Nothing more is added.' }],
+      values: b ? Object.assign({}, b, { active: b.active === false ? (b.end ? 'closed' : 'no') : 'yes' }) : { flatId: defFlat(expFlat), freq: 'monthly', day: 1, start: today().slice(0, 7) + '-01', category: EXP_CATS[0], active: 'yes' },
       onSave: function (d) {
         if (!(+d.amount > 0)) { toast('Enter the amount.'); return false; }
-        var o = b || { id: C.uid() }; Object.assign(o, { name: d.name, amount: +d.amount, freq: d.freq, category: d.category, flatId: d.flatId, day: Math.min(31, Math.max(1, +d.day || 1)), start: d.start, end: d.end, active: d.active !== 'no' });
+        var o = b || { id: C.uid() }; Object.assign(o, { name: d.name, amount: +d.amount, freq: d.freq, category: d.category, flatId: d.flatId, day: Math.min(31, Math.max(1, +d.day || 1)), start: d.start, end: d.end, active: d.active === 'yes' });
+        if (+d.count > 0 && d.start && !d.end) { var stp = { monthly: 1, quarterly: 3, yearly: 12 }[d.freq] || 1; o.end = C.addMonths(d.start.slice(0, 7), (Math.round(+d.count) - 1) * stp) + '-' + C.pad(o.day); }
+        if (d.active === 'closed') { o.active = false; if (!o.end) o.end = today(); }
+        if (d.active === 'no') o.end = d.end || '';
         if (!b) S.bills.push(o); postBills();
       } });
   }
@@ -561,20 +577,21 @@
 
   /* ---------- routing ---------- */
   function render() {
-    var parts = (location.hash.replace(/^#\/?/, '') || 'today').split('/'), page = parts[0], html, on = page;
+    var parts = (location.hash.replace(/^#\/?/, '') || 'dashboard').split('/'), page = parts[0], html, on = page;
     try {
       if (page === 'flats') html = viewFlats('');
       else if (page === 'flat') { html = viewFlats(parts[1], parts[2]); on = 'flats'; }
       else if (page === 'rental') { var rr = rentalById(parts[1]); html = viewFlats(rr ? rr.flatId : '', parts[1]); on = 'flats'; }
       else if (page === 'payments') html = viewPayments();
       else if (page === 'expenses') html = viewExpenses();
+      else if (page === 'today') html = viewToday();
       else if (page === 'dashboard') html = viewDashboard();
       else if (page === 'more') html = viewMore();
       else if (page === 'agreements') html = viewAgreements();
       else if (page === 'agreement') { html = viewAgreement(parts[1]); on = 'agreements'; }
       else if (page === 'settings') html = viewSettings();
-      else { html = viewToday(); on = 'today'; }
-    } catch (e) { console.error(e); html = '<div class="card empty"><h3>Something went wrong</h3><p>' + esc(e.message) + '</p><a class="btn" href="#/today">Go to Today</a></div>'; }
+      else { html = viewDashboard(); on = 'dashboard'; }
+    } catch (e) { console.error(e); html = '<div class="card empty"><h3>Something went wrong</h3><p>' + esc(e.message) + '</p><a class="btn" href="#/dashboard">Go to Dashboard</a></div>'; }
     var tabOn = (on === 'agreements' || on === 'settings') ? 'more' : on;
     $('#main').innerHTML = html;
     var link = function (n, cur) { return '<a href="#/' + n[0] + '" class="' + (cur === n[0] ? 'on' : '') + '">' + svg(n[2]) + '<span>' + n[1] + '</span></a>'; };
@@ -788,7 +805,7 @@
     pay: function (d) { payForm(d.r, d.k); }, remind: function (d) { remindSheet(d.r, d.k); }, logfu: function (d) { logForm(d.r, d.k); },
     sendMsg: function (d) { sendMsg(d.ch); },
     addExpense: function (d) { expenseForm(null, d.f); }, editExpense: function (d) { expenseForm(d.e); }, addBill: function () { billForm(); }, editBill: function (d) { billForm(d.b); },
-    pastExpenses: function () { pastExpensesForm(); }, expFlat: function (d) { expFlat = d.f || ''; render(); }, expNav: function (d) { expMonth = C.addMonths(expMonth, +d.n); render(); },
+    sellFlat: function (d) { sellForm(d.f); }, unsellFlat: function (d) { confirmBox('Undo the sale of this flat? Its closed bills stay closed.', 'Undo sale', function () { var f = S.flats.find(function (x) { return x.id === d.f; }); f.soldDate = ''; f.soldPrice = 0; f.soldNote = ''; }); }, pastExpenses: function () { pastExpensesForm(); }, expFlat: function (d) { expFlat = d.f || ''; render(); }, expNav: function (d) { expMonth = C.addMonths(expMonth, +d.n); render(); },
     dashMode: function (d) { dashMode = d.m; dashKey = null; render(); }, dashMonth: function (d) { dashMode = 'month'; dashKey = d.k; render(); },
     dashNav: function (d) { dashKey = dashMode === 'year' ? String(+dashKey + +d.n) : C.addMonths(dashKey, +d.n); render(); },
     editMonth: function (d) { monthSheet(d.r, d.k); }, settleMonth: function (d) { settleMonth(d.r, d.k); }, settleAll: function (d) { settleAll(d.r); }, changeRent: function (d) { changeRentForm(d.r); }, sendSettle: function (d) { settleSheet(d.r); }, bulkPay: function (d) { bulkPayForm(d.r); },

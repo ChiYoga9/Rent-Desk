@@ -54,7 +54,7 @@
     (S.tomb || []).forEach(function (t) { tomb[t.id] = 1; });
     (S.expenses || []).forEach(function (e) { have[e.id] = 1; });
     (S.bills || []).forEach(function (b) {
-      if (b.active === false || !(+b.amount > 0) || !b.start) return;
+      if ((b.active === false && !b.end) || !(+b.amount > 0) || !b.start) return;
       var step = { monthly: 1, quarterly: 3, yearly: 12 }[b.freq || 'monthly'] || 1, key = b.start.slice(0, 7), i = 0;
       while (key <= cur && i < 600) {
         if (!b.end || key <= b.end.slice(0, 7)) {

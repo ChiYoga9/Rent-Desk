@@ -4,7 +4,7 @@
    The app sends the PIN with every request. Data is written as readable tabs: Flats, Rentals, Payments, Followups, ... */
 
 var SCHEMA = {
-  Flats: ['id', 'name', 'address', 'furnishing', 'info', 'u'],
+  Flats: ['id', 'name', 'address', 'furnishing', 'info', 'soldDate', 'soldPrice', 'soldNote', 'u'],
   Rentals: ['id', 'flatId', 'tenantName', 'tenantPhone', 'tenantEmail', 'tenantId', 'tenantAddress', 'start', 'end', 'rent', 'dueDay', 'deposit', 'noticeDays', 'escalation', 'trackFrom', 'pref', 'utilities', 'extra', 'agreement', 'u', 'plan', 'revisions', 'depositSettlement', 'agreedEnd'],
   Payments: ['id', 'rentalId', 'key', 'amount', 'date', 'method', 'ref', 'u', 'waived'],
   Expenses: ['id', 'date', 'category', 'flatId', 'description', 'amount', 'method', 'auto', 'billId', 'u'],
@@ -15,7 +15,7 @@ var SCHEMA = {
   Settings: ['key', 'value'],
   Meta: ['key', 'value']
 };
-var NUMS = { rent: 1, dueDay: 1, deposit: 1, noticeDays: 1, escalation: 1, amount: 1, day: 1, u: 1 };
+var NUMS = { rent: 1, dueDay: 1, deposit: 1, noticeDays: 1, escalation: 1, amount: 1, day: 1, soldPrice: 1, u: 1 };
 var BOOLS = { waived: 1, auto: 1, active: 1 };
 
 function doGet() { return ContentService.createTextOutput('Rent Desk sync is running.'); }
@@ -114,7 +114,7 @@ function readAll_(ss) {
 
 function writeAll_(ss, d) {
   var flats = [], rentals = [], pays = [], fus = [], sigs = [], settings = [], exps = [], bills = [];
-  (d.flats || []).forEach(function (f) { flats.push([f.id, f.name, f.address, f.furnishing, f.info, f.u]); });
+  (d.flats || []).forEach(function (f) { flats.push([f.id, f.name, f.address, f.furnishing, f.info, f.soldDate || '', f.soldPrice || '', f.soldNote || '', f.u]); });
   (d.expenses || []).forEach(function (e) { exps.push([e.id, e.date, e.category, e.flatId, e.description, e.amount, e.method, !!e.auto, e.billId, e.u]); });
   (d.bills || []).forEach(function (b) { bills.push([b.id, b.name, b.category, b.flatId, b.amount, b.day, b.freq, b.start, b.end, b.method, b.active !== false, b.u]); });
   (d.rentals || []).forEach(function (r) {
