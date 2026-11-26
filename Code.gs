@@ -5,7 +5,7 @@
 
 var SCHEMA = {
   Flats: ['id', 'name', 'address', 'furnishing', 'info', 'soldDate', 'soldPrice', 'soldNote', 'u'],
-  Rentals: ['id', 'flatId', 'tenantName', 'tenantPhone', 'tenantEmail', 'tenantId', 'tenantAddress', 'start', 'end', 'rent', 'dueDay', 'deposit', 'noticeDays', 'escalation', 'trackFrom', 'pref', 'utilities', 'extra', 'agreement', 'u', 'plan', 'revisions', 'depositSettlement', 'agreedEnd'],
+  Rentals: ['id', 'flatId', 'tenantName', 'tenantPhone', 'tenantEmail', 'tenantId', 'tenantAddress', 'start', 'end', 'rent', 'dueDay', 'deposit', 'noticeDays', 'escalation', 'trackFrom', 'pref', 'utilities', 'extra', 'agreement', 'u', 'plan', 'revisions', 'depositSettlement', 'agreedEnd', 'depositReceived'],
   Payments: ['id', 'rentalId', 'key', 'amount', 'date', 'method', 'ref', 'u', 'waived'],
   Expenses: ['id', 'date', 'category', 'flatId', 'description', 'amount', 'method', 'auto', 'billId', 'u'],
   Bills: ['id', 'name', 'category', 'flatId', 'amount', 'day', 'freq', 'start', 'end', 'method', 'active', 'u'],
@@ -104,7 +104,7 @@ function readAll_(ss) {
     return {
       id: r.id, flatId: r.flatId, tenant: { name: r.tenantName, phone: r.tenantPhone, email: r.tenantEmail, idNo: r.tenantId, address: r.tenantAddress },
       start: r.start, end: r.end, rent: r.rent, dueDay: r.dueDay, deposit: r.deposit, noticeDays: r.noticeDays, escalation: r.escalation, trackFrom: r.trackFrom, pref: r.pref, utilities: r.utilities, extra: r.extra,
-      agreement: ag, plan: plan, revisions: revs, depositSettlement: dep, agreedEnd: r.agreedEnd, u: r.u,
+      agreement: ag, plan: plan, revisions: revs, depositSettlement: dep, agreedEnd: r.agreedEnd, depositReceived: r.depositReceived, u: r.u,
       payments: pays.filter(function (p) { return p.rentalId === r.id; }).map(function (p) { return { id: p.id, key: p.key, amount: p.amount, date: p.date, method: p.method, ref: p.ref, waived: p.waived, u: p.u }; }),
       followups: fus.filter(function (f) { return f.rentalId === r.id; }).map(function (f) { return { id: f.id, date: f.date, channel: f.channel, note: f.note, promiseDate: f.promiseDate, key: f.key, u: f.u }; })
     };
@@ -121,7 +121,7 @@ function writeAll_(ss, d) {
     var T = r.tenant || {}, ag = Object.assign({}, r.agreement || {});
     if (ag.sigL) sigs.push([r.id, 'L', ag.sigL]); if (ag.sigT) sigs.push([r.id, 'T', ag.sigT]);
     delete ag.sigL; delete ag.sigT;
-    rentals.push([r.id, r.flatId, T.name, T.phone, T.email, T.idNo, T.address, r.start, r.end, r.rent, r.dueDay, r.deposit, r.noticeDays, r.escalation, r.trackFrom, r.pref, r.utilities, r.extra, JSON.stringify(ag), r.u, JSON.stringify(r.plan || {}), JSON.stringify(r.revisions || []), r.depositSettlement ? JSON.stringify(r.depositSettlement) : '', r.agreedEnd]);
+    rentals.push([r.id, r.flatId, T.name, T.phone, T.email, T.idNo, T.address, r.start, r.end, r.rent, r.dueDay, r.deposit, r.noticeDays, r.escalation, r.trackFrom, r.pref, r.utilities, r.extra, JSON.stringify(ag), r.u, JSON.stringify(r.plan || {}), JSON.stringify(r.revisions || []), r.depositSettlement ? JSON.stringify(r.depositSettlement) : '', r.agreedEnd, r.depositReceived || '']);
     (r.payments || []).forEach(function (p) { pays.push([p.id, r.id, p.key, p.amount, p.date, p.method, p.ref, p.u, !!p.waived]); });
     (r.followups || []).forEach(function (f) { fus.push([f.id, r.id, f.date, f.channel, f.note, f.promiseDate, f.key, f.u]); });
   });

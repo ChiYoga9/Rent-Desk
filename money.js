@@ -71,12 +71,13 @@
      Unpaid rent up to the leaving date is settled from the deposit, oldest month first.
      Leaving before the agreed end date forfeits the rest of the deposit (unless opts.forfeit === false).
      Otherwise the landlord may keep deductions (damage, cleaning) and the rest is refunded.
+     A deposit that was never marked as received (r.depositReceived empty) counts as nothing held.
      opts: { forfeit: bool, deductions: [{label, amount}] } */
   function settleDeposit(r, leave, today, grace, opts) {
     opts = opts || {};
     var t = Object.assign({}, r, { end: leave });
     var dues = C.schedule(t, today, grace).filter(function (d) { return d.dueDate <= leave && d.balance > 0; });
-    var owed = round2(dues.reduce(function (s, d) { return s + d.balance; }, 0)), deposit = round2(+r.deposit || 0), rem = deposit, applied = [];
+    var owed = round2(dues.reduce(function (s, d) { return s + d.balance; }, 0)), deposit = r.depositReceived ? round2(+r.deposit || 0) : 0, rem = deposit, applied = [];
     dues.forEach(function (d) { var a = round2(Math.min(rem, d.balance)); if (a > 0) { applied.push({ key: d.key, amount: a }); rem = round2(rem - a); } });
     var appliedTotal = round2(applied.reduce(function (s, a) { return s + a.amount; }, 0));
     var agreed = r.agreedEnd || r.end, early = !!(agreed && leave < agreed);

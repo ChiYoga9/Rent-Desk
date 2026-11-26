@@ -196,6 +196,8 @@
       if (ag.status === 'sent') att.push('<div class="card row between wrapx"><div><div class="t">' + esc(f.name) + ' · ' + esc(r.tenant.name) + '</div><div class="s muted small">Agreement ' + (ag.status === 'sent' ? 'sent, waiting for signature' : ag.status === 'draft' ? 'drafted, not sent yet' : 'not drafted yet') + '</div></div><a class="btn sm ghost" href="#/agreement/' + r.id + '">' + (ag.status === 'sent' ? 'Open' : ag.status === 'draft' ? 'Open' : 'Draft it') + '</a></div>');
       if (r.end && C.diffDays(r.end, t) <= 60) att.push('<div class="card row between wrapx"><div><div class="t">' + esc(f.name) + ' · lease ends ' + esc(C.longDate(r.end)) + '</div><div class="s muted small">In ' + C.diffDays(r.end, t) + ' days. Renew or plan the handover.</div></div><button class="btn sm ghost" data-act="renew" data-r="' + r.id + '">Renew</button></div>');
     });
+    var dep = S.rentals.filter(function (r) { return +r.deposit > 0 && !r.depositReceived && !r.depositSettlement && !(r.end && r.end < t); });
+    if (dep.length) h += '<h2>Deposit to collect</h2><div class="stack">' + dep.map(function (r) { return '<div class="card row between wrapx"><div><div class="t">' + esc(flatOf(r).name) + ' · ' + esc(r.tenant.name) + '</div><div class="s muted small">Security deposit ' + money(r.deposit) + ' not received yet</div></div><button class="btn sm olive" data-act="depositRecv" data-r="' + r.id + '">Mark received</button></div>'; }).join('') + '</div>';
     var vac = S.flats.filter(function (f) { if (f.soldDate) return false; var r = currentRental(f, t); return !r || r.depositSettlement || (r.end && r.end < t); });
     if (vac.length) h += '<h2>Flats to let</h2><div class="stack">' + vac.map(function (f) { return '<div class="card row between wrapx"><div><div class="t">' + esc(f.name) + '</div><div class="s muted small">Vacant</div></div><button class="btn sm" data-act="newRental" data-f="' + f.id + '">Rent again</button></div>'; }).join('') + '</div>';
     if (att.length) h += '<h2>Agreements and leases</h2><div class="stack">' + att.join('') + '</div>';
@@ -338,7 +340,7 @@
       '<div class="btns">' + (T.phone ? '<a class="btn sm ghost" href="tel:' + esc(T.phone.replace(/\s/g, '')) + '">Call</a>' : '') + (ph ? '<a class="btn sm ghost" target="_blank" rel="noopener" href="https://wa.me/' + ph + '">WhatsApp</a>' : '') + '</div></div>';
     if (rc.length) h += '<div class="tiny muted" style="margin-top:6px">Rent changes: ' + rc.map(function (x) { return esc(C.monthLabel(x.from.slice(0, 7))) + ' → ' + money(x.rent); }).join(' · ') + '</div>';
     var tk = tokenOf(r); if (tk) h += '<div class="small" style="margin-top:8px">Token received: <b>' + money(tk.amount) + '</b> on ' + esc(C.shortDate(tk.date)) + ' <span class="muted">· taken off the first rent</span></div>';
-    if (+r.deposit > 0 && !st) h += '<div class="small" style="margin-top:8px">Security deposit held: <b>' + money(r.deposit) + '</b></div>';
+    if (+r.deposit > 0 && !st) h += '<div class="row wrapx small" style="margin-top:10px;gap:8px"><span>Security deposit <b>' + money(r.deposit) + '</b></span>' + (r.depositReceived ? '<span class="pill ok">Received ' + esc(C.shortDate(r.depositReceived)) + '</span><button class="btn sm ghost" data-act="depositUndo" data-r="' + r.id + '">Undo</button>' : '<span class="pill warn">Not received yet</span><button class="btn sm olive" data-act="depositRecv" data-r="' + r.id + '">Mark received</button>') + '</div>';
     h += '<div class="btns" style="margin-top:12px"><button class="btn sm ghost" data-act="editRental" data-r="' + r.id + '">Edit</button><button class="btn sm ghost" data-act="changeRent" data-r="' + r.id + '">Change rent</button><button class="btn sm ghost" data-act="bulkPay" data-r="' + r.id + '">Past payments</button><button class="btn sm ghost" data-act="settleAll" data-r="' + r.id + '">Settle dues</button>' +
       (st ? '' : '<button class="btn sm danger" data-act="endRental" data-r="' + r.id + '">' + (ended && +r.deposit > 0 ? 'Settle deposit' : 'End tenancy') + '</button>') + '<button class="btn sm danger" data-act="delRental" data-r="' + r.id + '">Delete</button></div></div>';
     if (st) h += depositCard(r, st);
@@ -427,6 +429,12 @@
   }
   function flatOptions() { return [['', 'Choose a flat…']].concat(S.flats.map(function (f) { return [f.id, f.name + (f.soldDate ? ' (sold)' : '')]; })); }
   var defFlat = function (id) { return id || (S.flats.length === 1 ? S.flats[0].id : ''); };
+  function depositRecvForm(rid) {
+    var r = rentalById(rid);
+    openForm({ title: 'Security deposit received', intro: flatOf(r).name + ' · ' + r.tenant.name + ' · ' + money(r.deposit), submit: 'Mark received',
+      fields: [{ name: 'date', label: 'Date received', type: 'date', required: true, full: true }], values: { date: today() },
+      onSave: function (d) { r.depositReceived = d.date; toast('Deposit marked as received.'); } });
+  }
   function sellForm(id) {
     var f = S.flats.find(function (x) { return x.id === id; }), t = today(), r = currentRental(f, t);
     if (r && (!r.end || r.end >= t)) { toast(r.start > t ? 'A tenant is booked from ' + C.shortDate(r.start) + '. Delete or end that rental first.' : 'A tenant is still living here. End the tenancy and settle the deposit first.'); return; }
@@ -524,7 +532,7 @@
     var r = rentalById(rid), t = today(), ended = r.end && r.end <= t;
     openDlg('<h3>' + (ended ? 'Settle the deposit' : 'End tenancy') + '</h3><p class="muted small" style="margin:6px 0 0">' + esc(flatOf(r).name) + ' · ' + esc(r.tenant.name) + '</p><form id="ef" novalidate><div class="fgrid">' +
       fieldHTML({ name: 'leave', label: 'Tenant leaves on', type: 'date', full: true }, { leave: ended ? r.end : t }) +
-      (+r.deposit > 0 ? fieldHTML({ name: 'ded', label: 'Deductions (damage, cleaning)', type: 'number', step: '0.01', min: 0 }, { ded: '' }) + fieldHTML({ name: 'dedLabel', label: 'For' }, { dedLabel: '' }) : '') + '</div>' +
+      ((+r.deposit > 0 && !r.depositReceived) ? '<div class="notice" style="grid-column:1/-1">The deposit of ' + money(r.deposit) + ' was never marked as received, so nothing is held against the rent. If it was paid, close this and use Mark received first.</div>' : '') + (+r.deposit > 0 && r.depositReceived ? fieldHTML({ name: 'ded', label: 'Deductions (damage, cleaning)', type: 'number', step: '0.01', min: 0 }, { ded: '' }) + fieldHTML({ name: 'dedLabel', label: 'For' }, { dedLabel: '' }) : '') + '</div>' +
       '<label class="chk hide" id="forfRow"><input type="checkbox" name="forfeit" checked> <span>Left before the agreed end date: the deposit is forfeited</span></label><div class="sumbox" id="sum"></div>' +
       '<div class="foot"><button type="button" class="btn ghost" data-act="close">Cancel</button><button class="btn" type="submit">' + (ended ? 'Settle' : 'End tenancy') + '</button></div></form>');
     var form = $('#ef');
@@ -615,7 +623,7 @@
     if (!S.flats.length) { toast('Add a flat first.'); return flatForm(); }
     var prev = !base && flatId ? flatRentals({ id: flatId })[0] : null;
     var tkn = base ? tokenOf(base) : null;
-    var v = base ? { tokenAmt: tkn && !copyFrom ? tkn.amount : '', tokenDate: tkn && !copyFrom ? tkn.date : '', flatId: base.flatId, tname: base.tenant.name, tphone: base.tenant.phone, temail: base.tenant.email, tid: base.tenant.idNo, taddr: base.tenant.address, start: copyFrom ? C.addDays(copyFrom.end || t, 1) : base.start, end: copyFrom ? '' : base.end, rent: base.rent, dueDay: base.dueDay, deposit: base.deposit, noticeDays: base.noticeDays, escalation: base.escalation, trackFrom: copyFrom ? '' : base.trackFrom, utilities: base.utilities, extra: base.extra, pref: base.pref } : { flatId: flatId || S.flats[0].id, start: prev ? t : '', rent: prev ? prev.rent : '', dueDay: prev ? prev.dueDay : 1, noticeDays: prev ? prev.noticeDays : 30, escalation: prev ? prev.escalation : 0, deposit: prev ? prev.deposit : 0, tokenDate: t, pref: 'wa' };
+    var v = base ? { depositReceived: copyFrom ? '' : (base.depositReceived || ''), tokenAmt: tkn && !copyFrom ? tkn.amount : '', tokenDate: tkn && !copyFrom ? tkn.date : '', flatId: base.flatId, tname: base.tenant.name, tphone: base.tenant.phone, temail: base.tenant.email, tid: base.tenant.idNo, taddr: base.tenant.address, start: copyFrom ? C.addDays(copyFrom.end || t, 1) : base.start, end: copyFrom ? '' : base.end, rent: base.rent, dueDay: base.dueDay, deposit: base.deposit, noticeDays: base.noticeDays, escalation: base.escalation, trackFrom: copyFrom ? '' : base.trackFrom, utilities: base.utilities, extra: base.extra, pref: base.pref } : { flatId: flatId || S.flats[0].id, start: prev ? t : '', rent: prev ? prev.rent : '', dueDay: prev ? prev.dueDay : 1, noticeDays: prev ? prev.noticeDays : 30, escalation: prev ? prev.escalation : 0, deposit: prev ? prev.deposit : 0, tokenDate: t, pref: 'wa' };
     openForm({ title: id ? 'Edit rental' : copyFrom ? 'Renew rental' : 'New rental', intro: 'This holds the basics of the rental agreement. The agreement and the follow-up dates are made from it.', submit: id ? 'Save' : 'Create rental',
       fields: [
         { name: 'flatId', label: 'Flat', type: 'select', options: S.flats.map(function (f) { return [f.id, f.name]; }), full: true },
@@ -623,7 +631,7 @@
         { more: true, name: 'taddr', label: 'Tenant\'s own address (optional)', full: true, hint: 'Their permanent address, used in the agreement.' },
         { name: 'start', label: 'Rental starts', type: 'date', required: true }, { name: 'end', label: 'Rental ends', type: 'date', hint: 'Leave empty if open-ended.' },
         { name: 'rent', label: 'Monthly rent', type: 'number', step: '0.01', min: 0, required: true }, { name: 'dueDay', label: 'Rent due on day', type: 'number', min: 1, max: 31, required: true, hint: 'Day of the month, 1 to 31.' },
-        { name: 'deposit', label: 'Security deposit', type: 'number', step: '0.01', min: 0 }, { name: 'tokenAmt', label: 'Token / advance received', type: 'number', step: '0.01', min: 0, hint: 'Booking money paid before moving in. It is taken off the first rent.' }, { name: 'tokenDate', label: 'Token received on', type: 'date' }, { more: true, name: 'noticeDays', label: 'Notice period (days)', type: 'number', min: 0 },
+        { name: 'deposit', label: 'Security deposit', type: 'number', step: '0.01', min: 0 }, { name: 'depositReceived', label: 'Deposit received on', type: 'date', hint: 'Leave empty until it is paid. You can also use Mark received later.' }, { name: 'tokenAmt', label: 'Token / advance received', type: 'number', step: '0.01', min: 0, hint: 'Booking money paid before moving in. It is taken off the first rent.' }, { name: 'tokenDate', label: 'Token received on', type: 'date' }, { more: true, name: 'noticeDays', label: 'Notice period (days)', type: 'number', min: 0 },
         { more: true, name: 'escalation', label: 'Yearly rent increase (%)', type: 'number', step: '0.1', min: 0 },
         { more: true, name: 'trackFrom', label: 'Start tracking payments from', type: 'date', full: true, hint: 'Already renting for a while? Pick the first month you want followed up. Empty means this month, or the start date if later.' },
         { more: true, name: 'utilities', label: 'Utilities and charges (optional)', type: 'textarea', rows: 2, full: true, hint: 'Who pays what. Empty uses the standard sentence.' },
@@ -633,7 +641,7 @@
         if (d.end && d.end < d.start) { toast('The end date is before the start date.'); return false; }
         var monthStart = t.slice(0, 7) + '-01', tf = d.trackFrom || (d.start > monthStart ? d.start : monthStart);
         var o = id ? base : { id: C.uid(), payments: [], followups: [], agreement: { status: 'none' } };
-        Object.assign(o, { flatId: d.flatId, tenant: { name: d.tname, phone: d.tphone, email: d.temail, idNo: d.tid, address: d.taddr }, start: d.start, end: d.end, rent: +d.rent, dueDay: +d.dueDay, deposit: +d.deposit || 0, noticeDays: +d.noticeDays || 30, escalation: +d.escalation || 0, trackFrom: tf, utilities: d.utilities, extra: d.extra, pref: d.pref });
+        Object.assign(o, { flatId: d.flatId, tenant: { name: d.tname, phone: d.tphone, email: d.temail, idNo: d.tid, address: d.taddr }, start: d.start, end: d.end, rent: +d.rent, dueDay: +d.dueDay, deposit: +d.deposit || 0, depositReceived: (+d.deposit > 0 && d.depositReceived) ? d.depositReceived : '', noticeDays: +d.noticeDays || 30, escalation: +d.escalation || 0, trackFrom: tf, utilities: d.utilities, extra: d.extra, pref: d.pref });
         o.payments = (o.payments || []).filter(function (p) { return p.method !== 'Token'; });
         if (+d.tokenAmt > 0) {
           var rem = +d.tokenAmt, dd = C.buildDues(Object.assign({}, o, { trackFrom: '' }), t);
@@ -779,7 +787,7 @@
   function sample() {
     var t = today(), mk = t.slice(0, 7), dayOfMonth = +t.slice(8);
     function mkRental(flat, tenant, monthsAgo, dueDay, rent, payCurrent, endInDays, signed) {
-      var s = C.addMonths(mk, -monthsAgo) + '-01', r = { id: C.uid(), flatId: flat.id, tenant: tenant, start: s, end: endInDays != null ? C.addDays(t, endInDays) : C.addDays(s, 364 + 365), rent: rent, dueDay: dueDay, deposit: rent * 2, noticeDays: 30, escalation: 3, trackFrom: s, utilities: '', extra: '', pref: 'wa', payments: [], followups: [], agreement: { status: signed ? 'signed' : 'none', signedAt: signed ? s : '' } };
+      var s = C.addMonths(mk, -monthsAgo) + '-01', r = { id: C.uid(), flatId: flat.id, tenant: tenant, start: s, end: endInDays != null ? C.addDays(t, endInDays) : C.addDays(s, 364 + 365), rent: rent, dueDay: dueDay, deposit: rent * 2, depositReceived: s <= t ? s : '', noticeDays: 30, escalation: 3, trackFrom: s, utilities: '', extra: '', pref: 'wa', payments: [], followups: [], agreement: { status: signed ? 'signed' : 'none', signedAt: signed ? s : '' } };
       C.buildDues(r, t).forEach(function (d) { if (d.key < mk || (d.key === mk && payCurrent && d.dueDate <= t)) r.payments.push({ id: C.uid(), key: d.key, amount: d.amount, date: d.dueDate, method: 'Bank transfer', ref: '' }); });
       S.rentals.push(r); return r;
     }
@@ -805,7 +813,7 @@
     pay: function (d) { payForm(d.r, d.k); }, remind: function (d) { remindSheet(d.r, d.k); }, logfu: function (d) { logForm(d.r, d.k); },
     sendMsg: function (d) { sendMsg(d.ch); },
     addExpense: function (d) { expenseForm(null, d.f); }, editExpense: function (d) { expenseForm(d.e); }, addBill: function () { billForm(); }, editBill: function (d) { billForm(d.b); },
-    sellFlat: function (d) { sellForm(d.f); }, unsellFlat: function (d) { confirmBox('Undo the sale of this flat? Its closed bills stay closed.', 'Undo sale', function () { var f = S.flats.find(function (x) { return x.id === d.f; }); f.soldDate = ''; f.soldPrice = 0; f.soldNote = ''; }); }, pastExpenses: function () { pastExpensesForm(); }, expFlat: function (d) { expFlat = d.f || ''; render(); }, expNav: function (d) { expMonth = C.addMonths(expMonth, +d.n); render(); },
+    depositRecv: function (d) { depositRecvForm(d.r); }, depositUndo: function (d) { confirmBox('Mark the deposit as not received?', 'Not received', function () { rentalById(d.r).depositReceived = ''; }); }, sellFlat: function (d) { sellForm(d.f); }, undepositRecv: function (d) { depositRecvForm(d.r); }, depositUndo: function (d) { confirmBox('Mark the deposit as not received?', 'Not received', function () { rentalById(d.r).depositReceived = ''; }); }, sellFlat: function (d) { confirmBox('Undo the sale of this flat? Its closed bills stay closed.', 'Undo sale', function () { var f = S.flats.find(function (x) { return x.id === d.f; }); f.soldDate = ''; f.soldPrice = 0; f.soldNote = ''; }); }, pastExpenses: function () { pastExpensesForm(); }, expFlat: function (d) { expFlat = d.f || ''; render(); }, expNav: function (d) { expMonth = C.addMonths(expMonth, +d.n); render(); },
     dashMode: function (d) { dashMode = d.m; dashKey = null; render(); }, dashMonth: function (d) { dashMode = 'month'; dashKey = d.k; render(); },
     dashNav: function (d) { dashKey = dashMode === 'year' ? String(+dashKey + +d.n) : C.addMonths(dashKey, +d.n); render(); },
     editMonth: function (d) { monthSheet(d.r, d.k); }, settleMonth: function (d) { settleMonth(d.r, d.k); }, settleAll: function (d) { settleAll(d.r); }, changeRent: function (d) { changeRentForm(d.r); }, sendSettle: function (d) { settleSheet(d.r); }, bulkPay: function (d) { bulkPayForm(d.r); },
