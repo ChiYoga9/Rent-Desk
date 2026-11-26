@@ -378,7 +378,7 @@
       var when = d.status === 'overdue' ? '<span class="badtxt">' + d.daysLate + ' days late</span>' : d.status === 'due' ? 'due today' : 'due ' + esc(C.shortDate(d.dueDate));
       g.amt += d.balance;
       add(g, sev, esc(C.monthLabel(d.key)) + ' rent ' + money(d.balance) + ' ' + when + (pr ? ' (promised ' + esc(C.shortDate(pr)) + ')' : ''), { k: 'paid' + d.key, h: '<button class="btn sm olive" data-act="pay" data-r="' + d.r.id + '" data-k="' + d.key + '">Paid</button>' });
-      if (sev < 2) add(g, sev, '', { k: 'rem', h: '<button class="btn sm ghost" data-act="remind" data-r="' + d.r.id + '" data-k="' + d.key + '">Remind</button>' });
+      if (!C.phoneDigits(d.r.tenant.phone, S.settings.countryCode)) add(g, sev, 'no phone number', null); else add(g, sev, '', { k: 'wa', h: '<button class="btn sm wa" data-act="waNow" data-r="' + d.r.id + '" data-k="' + d.key + '">WhatsApp</button>' });
     });
     S.rentals.forEach(function (r) {
       if (r.end && r.end < t) return;
@@ -716,10 +716,17 @@
   var remCtx = null;
   function remindSheet(rid, key) {
     var r = rentalById(rid), d = C.schedule(r, today(), grace()).find(function (x) { return x.key === key; }); if (!d) return;
-    var s = S.settings, late = d.status === 'overdue' || d.status === 'due';
-    var msg = C.fill(late ? (s.msgLate || DEFAULT_LATE) : (s.msgSoon || DEFAULT_SOON), { tenant: firstName(r.tenant.name), flat: flatOf(r).name, amount: money(d.balance), period: C.monthLabel(d.key), dueDate: C.longDate(d.dueDate), daysLate: d.daysLate, payInfo: s.payInfo, landlord: s.landlord.name }).replace(/ +\n/g, '\n').replace(/ {2,}/g, ' ').trim();
     remCtx = { r: r, d: d };
-    return remindSheet2(r, d, msg);
+    return remindSheet2(r, d, reminderText(r, d));
+  }
+  function reminderText(r, d) {
+    var s = S.settings, late = d.status === 'overdue' || d.status === 'due';
+    return C.fill(late ? (s.msgLate || DEFAULT_LATE) : (s.msgSoon || DEFAULT_SOON), { tenant: firstName(r.tenant.name), flat: flatOf(r).name, amount: money(d.balance), period: C.monthLabel(d.key), dueDate: C.longDate(d.dueDate), daysLate: d.daysLate, payInfo: s.payInfo, landlord: s.landlord.name }).replace(/ +\n/g, '\n').replace(/ {2,}/g, ' ').trim();
+  }
+  /* one tap from the dashboard: open WhatsApp with the standard reminder ready (nothing is sent until you press send there) */
+  function waNow(rid, key) {
+    var r = rentalById(rid), d = C.schedule(r, today(), grace()).find(function (x) { return x.key === key; }); if (!d) return;
+    remCtx = { r: r, d: d }; sendMsg('wa', reminderText(r, d));
   }
   function infoSheet(rid) {
     var r = rentalById(rid), f = flatOf(r);
@@ -733,8 +740,8 @@
     openDlg('<h3>' + esc(title || 'Send a reminder') + '</h3><p class="muted small" style="margin:6px 0 0">' + esc(flatOf(r).name) + ' · ' + esc(r.tenant.name) + (d ? ' · ' + esc(C.monthLabel(d.key)) : '') + '</p><label for="msgbox">Message (you can change it)</label><textarea id="msgbox" rows="9">' + esc(msg) + '</textarea>' +
       '<div class="btns" style="margin-top:14px">' + btn('wa', 'Open WhatsApp') + btn('copy', 'Copy') + '</div><p class="hint">WhatsApp opens with the message ready: nothing is sent until you press send there. It is saved in the follow-up log.</p><div class="foot"><button class="btn ghost" data-act="close">Close</button></div>');
   }
-  function sendMsg(ch) {
-    var r = remCtx.r, d = remCtx.d || { key: '' }, info = !!remCtx.info, msg = $('#msgbox').value, T = r.tenant, ph = C.phoneDigits(T.phone, S.settings.countryCode), name = { wa: 'WhatsApp', copy: 'Copy' }[ch];
+  function sendMsg(ch, preMsg) {
+    var r = remCtx.r, d = remCtx.d || { key: '' }, info = !!remCtx.info, msg = preMsg !== undefined ? preMsg : $('#msgbox').value, T = r.tenant, ph = C.phoneDigits(T.phone, S.settings.countryCode), name = { wa: 'WhatsApp', copy: 'Copy' }[ch];
     if (ch === 'wa') { if (!ph) return toast('Add a phone number for this tenant first.'); window.open('https://wa.me/' + ph + '?text=' + encodeURIComponent(msg), '_blank', 'noopener'); }
     else { try { navigator.clipboard.writeText(msg); toast('Message copied.'); } catch (e) { toast('Could not copy. Select the text and copy it.'); return; } }
     if (ch !== 'copy') { r.followups.push({ id: C.uid(), date: today(), channel: name, note: info ? (remCtx.label || 'Flat information sent') : 'Reminder sent for ' + C.monthLabel(d.key), key: d.key }); save(); render(); }
@@ -831,7 +838,7 @@
     newRentalPick: function () { if (!S.flats.length) { flatForm(); } else rentalForm(null); },
     editRental: function (d) { rentalForm(d.r); },
     renew: function (d) { rentalForm(null, null, rentalById(d.r)); },
-    pay: function (d) { payForm(d.r, d.k); }, remind: function (d) { remindSheet(d.r, d.k); }, logfu: function (d) { logForm(d.r, d.k); },
+    pay: function (d) { payForm(d.r, d.k); }, remind: function (d) { remindSheet(d.r, d.k); }, waNow: function (d) { waNow(d.r, d.k); }, logfu: function (d) { logForm(d.r, d.k); },
     sendMsg: function (d) { sendMsg(d.ch); },
     addExpense: function (d) { expenseForm(null, d.f); }, editExpense: function (d) { expenseForm(d.e); }, addBill: function () { billForm(); }, editBill: function (d) { billForm(d.b); },
     depositRecv: function (d) { depositRecvForm(d.r); }, depositUndo: function (d) { confirmBox('Mark the deposit as not received?', 'Not received', function () { rentalById(d.r).depositReceived = ''; }); }, sellFlat: function (d) { sellForm(d.f); }, undepositRecv: function (d) { depositRecvForm(d.r); }, depositUndo: function (d) { confirmBox('Mark the deposit as not received?', 'Not received', function () { rentalById(d.r).depositReceived = ''; }); }, sellFlat: function (d) { confirmBox('Undo the sale of this flat? Its closed bills stay closed.', 'Undo sale', function () { var f = S.flats.find(function (x) { return x.id === d.f; }); f.soldDate = ''; f.soldPrice = 0; f.soldNote = ''; }); }, pastExpenses: function () { pastExpensesForm(); }, expFlat: function (d) { expFlat = d.f || ''; render(); }, expNav: function (d) { expMonth = C.addMonths(expMonth, +d.n); render(); },

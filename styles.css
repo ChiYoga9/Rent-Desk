@@ -193,3 +193,5 @@ details.more .nrow:first-of-type { border-top: 1px solid var(--line); }
 .nrow.dim { opacity: .6; }
 @media (max-width: 560px) { .nrow.inl { flex-direction: row; align-items: center; } .nrow.inl .nact { flex-wrap: nowrap; } }
 @media (max-width: 560px) { .mx { min-width: 0; border-spacing: 2px 4px; } .mx td.mxn { min-width: 84px; max-width: 96px; font-size: 12.5px; padding-right: 6px; } .cell { width: 30px; height: 28px; } .mx th { font-size: 10.5px; } }
+.btn.wa { background: #fff; border-color: var(--olive); color: var(--olive); }
+.btn.wa::before { content: '\2706  '; }
