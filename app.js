@@ -116,8 +116,8 @@
     set: '<circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.1-1.3l2-1.5-2-3.4-2.3.9a7 7 0 00-2.3-1.3L14 3h-4l-.3 2.4a7 7 0 00-2.3 1.3l-2.3-.9-2 3.4 2 1.5a7 7 0 000 2.6l-2 1.5 2 3.4 2.3-.9a7 7 0 002.3 1.3L10 21h4l.3-2.4a7 7 0 002.3-1.3l2.3.9 2-3.4-2-1.5c.1-.4.1-.9.1-1.3z"/>'
   };
   var svg = function (k) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICON[k] + '</svg>'; };
-  var NAV = [['dashboard', 'Dashboard', 'dash'], ['today', 'To do', 'today'], ['flats', 'Flats', 'flats'], ['payments', 'Rent', 'pay'], ['expenses', 'Expenses', 'exp'], ['more', 'More', 'more']];
-  var SIDE = [['dashboard', 'Dashboard', 'dash'], ['today', 'To do', 'today'], ['flats', 'Flats', 'flats'], ['payments', 'Rent', 'pay'], ['expenses', 'Expenses', 'exp'], ['agreements', 'Agreements', 'agree'], ['settings', 'Settings', 'set']];
+  var NAV = [['dashboard', 'Dashboard', 'dash'], ['flats', 'Flats', 'flats'], ['payments', 'Rent', 'pay'], ['expenses', 'Expenses', 'exp'], ['more', 'More', 'more']];
+  var SIDE = [['dashboard', 'Dashboard', 'dash'], ['flats', 'Flats', 'flats'], ['payments', 'Rent', 'pay'], ['expenses', 'Expenses', 'exp'], ['agreements', 'Agreements', 'agree'], ['settings', 'Settings', 'set']];
 
   /* ---------- sheets (dialog) ---------- */
   var dlg = $('#dlg'), dlgBody = $('#dlgBody');
@@ -165,45 +165,8 @@
   }
   function pillFor(d) { return d.status === 'paid' ? '<span class="pill ok">Paid</span>' : d.status === 'overdue' ? '<span class="pill bad">' + esc(lateText(d)) + '</span>' : d.status === 'due' ? '<span class="pill warn">' + esc(lateText(d)) + '</span>' : d.status === 'soon' ? '<span class="pill clay">' + esc(lateText(d)) + '</span>' : '<span class="pill grey">' + esc(C.shortDate(d.dueDate)) + '</span>'; }
 
-  function dueCard(d) {
-    var r = d.r, last = (r.followups || []).slice(-1)[0], promise = C.latestPromise(r, today());
-    return '<div class="card item"><div class="top"><div class="grow"><div class="t"><a href="#/rental/' + r.id + '" style="text-decoration:none">' + esc(d.flat.name) + '</a></div><div class="s">' + esc(r.tenant.name) + ' · rent for ' + esc(C.monthLabel(d.key)) + '</div></div>' +
-      '<div class="right"><div class="amt">' + money(d.balance) + '</div>' + (d.partial ? '<div class="tiny muted">of ' + money(d.amount) + '</div>' : '') + '</div></div>' +
-      '<div class="row wrapx" style="gap:6px">' + pillFor(d) + (promise ? '<span class="pill ok">Promised ' + esc(C.shortDate(promise)) + '</span>' : '') + (last ? '<span class="tiny muted">Last follow-up ' + esc(C.shortDate(last.date)) + ' · ' + esc(last.channel) + '</span>' : '') + '</div>' +
-      '<div class="btns"><button class="btn sm olive" data-act="pay" data-r="' + r.id + '" data-k="' + d.key + '">Mark paid</button><button class="btn sm" data-act="remind" data-r="' + r.id + '" data-k="' + d.key + '">Send reminder</button><button class="btn sm ghost" data-act="logfu" data-r="' + r.id + '" data-k="' + d.key + '">Log a call</button></div></div>';
-  }
 
   /* ---------- views ---------- */
-  function viewToday() {
-    var t = today(), mk = t.slice(0, 7), dues = allDues(t);
-    var thisMonth = dues.filter(function (d) { return d.key === mk; });
-    var expected = thisMonth.reduce(function (s, d) { return s + d.amount; }, 0), got = thisMonth.reduce(function (s, d) { return s + d.paid; }, 0);
-    var needs = dues.filter(function (d) { return d.status === 'overdue' || d.status === 'due'; }).sort(function (a, b) { var pa = C.latestPromise(a.r, t) ? 1 : 0, pb = C.latestPromise(b.r, t) ? 1 : 0; return pa - pb || b.daysLate - a.daysLate; });
-    var overdueTotal = dues.filter(function (d) { return d.status === 'overdue'; }).reduce(function (s, d) { return s + d.balance; }, 0);
-    var soon = dues.filter(function (d) { return d.status === 'soon'; }).sort(function (a, b) { return a.dueDate < b.dueDate ? -1 : 1; });
-    var soonTotal = soon.reduce(function (s, d) { return s + d.balance; }, 0);
-    var h = '<div class="pagehead"><div><div class="eyebrow">' + esc(C.longDate(t)) + ' <span class="syncchip" style="text-transform:none;letter-spacing:0;color:var(--muted);margin-left:8px"></span></div><h1>To do</h1><div class="muted small">Only what needs you right now.</div></div><div class="btns"><button class="btn" data-act="newRentalPick">+ New rental</button></div></div>';
-    if (!S.flats.length) return h + '<div class="card empty"><h3>Welcome to Rent Desk</h3><p>Add your flats, set up each rental with the rent and dates, and this page will tell you every morning who to follow up with. Agreements are drafted for you, ready to sign.</p><div class="btns" style="justify-content:center"><button class="btn" data-act="addFlat">Add my first flat</button><button class="btn ghost" data-act="sample">Try with sample data</button></div></div>';
-    var nag = S.rentals.length && (!S.settings.lastBackup || C.diffDays(t, S.settings.lastBackup) > 30);
-    if (nag) h += '<div class="notice">Your data is saved on this device only. <button class="btn sm ghost" data-act="backup" style="margin-left:6px">Back up now</button></div>';
-    h += '<h2>Follow up now</h2>' + (needs.length ? '<div class="stack">' + needs.map(dueCard).join('') + '</div>' : '<div class="card muted">Nothing is late. Well done.</div>');
-    if (soon.length) h += '<h2>Coming up</h2><div class="stack">' + soon.map(dueCard).join('') + '</div>';
-    var att = [];
-    S.rentals.forEach(function (r) {
-      var ag = r.agreement || {}, f = flatOf(r), ended = r.end && r.end < t;
-      if (ended) return;
-      if (r.start > t) { var tk = tokenOf(r); att.push('<div class="card row between wrapx"><div><div class="t">' + esc(f.name) + ' · ' + esc(r.tenant.name) + ' moves in ' + esc(C.longDate(r.start)) + '</div><div class="s muted small">In ' + C.diffDays(r.start, t) + ' days' + (tk ? ' · token ' + money(tk.amount) + ' received, off the first rent' : ' · no token recorded') + '</div></div><a class="btn sm ghost" href="#/rental/' + r.id + '">Open</a></div>'); }
-      if (ag.status === 'sent') att.push('<div class="card row between wrapx"><div><div class="t">' + esc(f.name) + ' · ' + esc(r.tenant.name) + '</div><div class="s muted small">Agreement ' + (ag.status === 'sent' ? 'sent, waiting for signature' : ag.status === 'draft' ? 'drafted, not sent yet' : 'not drafted yet') + '</div></div><a class="btn sm ghost" href="#/agreement/' + r.id + '">' + (ag.status === 'sent' ? 'Open' : ag.status === 'draft' ? 'Open' : 'Draft it') + '</a></div>');
-      if (r.end && C.diffDays(r.end, t) <= 60) att.push('<div class="card row between wrapx"><div><div class="t">' + esc(f.name) + ' · lease ends ' + esc(C.longDate(r.end)) + '</div><div class="s muted small">In ' + C.diffDays(r.end, t) + ' days. Renew or plan the handover.</div></div><button class="btn sm ghost" data-act="renew" data-r="' + r.id + '">Renew</button></div>');
-    });
-    var dep = S.rentals.filter(function (r) { return +r.deposit > 0 && !r.depositReceived && !r.depositSettlement && !(r.end && r.end < t); });
-    if (dep.length) h += '<h2>Deposit to collect</h2><div class="stack">' + dep.map(function (r) { return '<div class="card row between wrapx"><div><div class="t">' + esc(flatOf(r).name) + ' · ' + esc(r.tenant.name) + '</div><div class="s muted small">Security deposit ' + money(r.deposit) + ' not received yet</div></div><button class="btn sm olive" data-act="depositRecv" data-r="' + r.id + '">Mark received</button></div>'; }).join('') + '</div>';
-    var vac = S.flats.filter(function (f) { if (f.soldDate) return false; var r = currentRental(f, t); return !r || r.depositSettlement || (r.end && r.end < t); });
-    if (vac.length) h += '<h2>Flats to let</h2><div class="stack">' + vac.map(function (f) { return '<div class="card row between wrapx"><div><div class="t">' + esc(f.name) + '</div><div class="s muted small">Vacant</div></div><button class="btn sm" data-act="newRental" data-f="' + f.id + '">Rent again</button></div>'; }).join('') + '</div>';
-    if (att.length) h += '<h2>Agreements and leases</h2><div class="stack">' + att.join('') + '</div>';
-    return h;
-  }
-
   var payMonth = null;
   function viewPayments() {
     var t = today(); if (!payMonth) payMonth = t.slice(0, 7);
@@ -375,36 +338,56 @@
   /* ---------- dashboard: month / year, like the ChiYoga teacher app ---------- */
   var dashMode = 'month', dashKey = null;
   function delta(cur, prev) { if (!prev) return ''; var p = Math.round((cur - prev) / Math.abs(prev) * 100); return p === 0 ? '= same' : (p > 0 ? '↑ ' : '↓ ') + Math.abs(p) + '%'; }
+  /* Things that need the owner, most urgent first. One compact row each. */
+  function needsList(t) {
+    var rows = [], row = function (title, sub, act) { return '<div class="nrow"><div class="grow"><div class="t">' + title + '</div><div class="s muted small">' + sub + '</div></div><div class="nact">' + act + '</div></div>'; };
+    var dues = allDues(t), rent = dues.filter(function (d) { return d.status === 'overdue' || d.status === 'due' || d.status === 'soon'; }).sort(function (a, b) { var o = { overdue: 0, due: 1, soon: 2 }; return o[a.status] - o[b.status] || (a.dueDate < b.dueDate ? -1 : 1); });
+    rent.forEach(function (d) {
+      var pr = C.latestPromise(d.r, t), late = d.status === 'overdue' ? d.daysLate + ' days late' : d.status === 'due' ? 'due today' : 'due ' + C.shortDate(d.dueDate);
+      rows.push(row('<a href="#/rental/' + d.r.id + '">' + esc(d.flat.name) + '</a> · ' + esc(d.r.tenant.name), esc(C.monthLabel(d.key)) + ' rent · <span class="' + (d.status === 'overdue' ? 'badtxt' : '') + '">' + late + '</span>' + (pr ? ' · promised ' + esc(C.shortDate(pr)) : ''),
+        '<b>' + money(d.balance) + '</b><button class="btn sm olive" data-act="pay" data-r="' + d.r.id + '" data-k="' + d.key + '">Paid</button>' + (d.status === 'soon' ? '' : '<button class="btn sm ghost" data-act="remind" data-r="' + d.r.id + '" data-k="' + d.key + '">Remind</button>')));
+    });
+    S.rentals.forEach(function (r) {
+      if (r.end && r.end < t) return;
+      var f = flatOf(r), nm = '<a href="#/rental/' + r.id + '">' + esc(f.name) + '</a> · ' + esc(r.tenant.name), ag = r.agreement || {};
+      if (+r.deposit > 0 && !r.depositReceived && !r.depositSettlement) rows.push(row(nm, 'Security deposit ' + money(r.deposit) + ' not received', '<button class="btn sm olive" data-act="depositRecv" data-r="' + r.id + '">Mark received</button>'));
+      if (r.start > t) { var tk = tokenOf(r); rows.push(row(nm, 'Moves in ' + esc(C.longDate(r.start)) + (tk ? ' · token ' + money(tk.amount) + ' received' : ''), '')); }
+      if (ag.status === 'sent') rows.push(row(nm, 'Agreement sent, waiting for signature', '<a class="btn sm ghost" href="#/agreement/' + r.id + '">Open</a>'));
+      if (r.end && r.start <= t && C.diffDays(r.end, t) <= 60) rows.push(row(nm, 'Lease ends ' + esc(C.longDate(r.end)) + ' (' + C.diffDays(r.end, t) + ' days)', '<button class="btn sm ghost" data-act="renew" data-r="' + r.id + '">Renew</button>'));
+    });
+    S.flats.forEach(function (f) { if (f.soldDate) return; var r = currentRental(f, t); if (!r || r.depositSettlement || (r.end && r.end < t)) rows.push(row('<a href="#/flat/' + f.id + '">' + esc(f.name) + '</a>', 'Vacant', '<button class="btn sm" data-act="newRental" data-f="' + f.id + '">Rent again</button>')); });
+    return rows;
+  }
   function viewDashboard() {
     var t = today(), isY = dashMode === 'year'; if (!dashKey) dashKey = isY ? t.slice(0, 4) : t.slice(0, 7);
+    var label = isY ? dashKey : C.monthLabel(dashKey);
+    var h = '<div class="pagehead"><div><div class="eyebrow">' + esc(C.longDate(t)) + ' <span class="syncchip" style="text-transform:none;letter-spacing:0;color:var(--muted);margin-left:8px"></span></div><h1>' + esc(label) + '</h1></div><div class="row"><div class="seg"><button data-act="dashMode" data-m="month" class="' + (isY ? '' : 'on') + '">Month</button><button data-act="dashMode" data-m="year" class="' + (isY ? 'on' : '') + '">Year</button></div>' +
+      '<button class="btn sm ghost" data-act="dashNav" data-n="-1" aria-label="Previous">‹</button><button class="btn sm ghost" data-act="dashNav" data-n="1" aria-label="Next">›</button></div></div>';
+    if (!S.flats.length) return h + '<div class="card empty"><h3>Welcome to Rent Desk</h3><p>Add your flats, set up each rental with the rent and dates, and this page will tell you every morning who to follow up with. Agreements are drafted for you, ready to sign.</p><div class="btns" style="justify-content:center"><button class="btn" data-act="addFlat">Add my first flat</button><button class="btn ghost" data-act="sample">Try with sample data</button></div></div>';
+    var nag = S.rentals.length && (!S.settings.lastBackup || C.diffDays(t, S.settings.lastBackup) > 30);
+    if (nag && !cfg.url) h += '<div class="notice">Your data is saved on this device only. <button class="btn sm ghost" data-act="backup" style="margin-left:6px">Back up now</button></div>';
+    var need = needsList(t), cap = 5;
+    h += '<div class="card" style="margin-bottom:12px"><h3 style="margin:0 0 4px">Needs you' + (need.length ? ' <span class="pill grey">' + need.length + '</span>' : '') + '</h3>' +
+      (need.length ? need.slice(0, cap).join('') + (need.length > cap ? '<details class="more"><summary>' + (need.length - cap) + ' more</summary>' + need.slice(cap).join('') + '</details>' : '') : '<div class="muted small" style="padding:6px 0 2px">Nothing needs you right now.</div>') + '</div>';
     var fig = function (mode, key) { var rg = Money.range(mode, key); return Money.figures(S, rg.from, rg.to, t, grace()); };
     var f = fig(dashMode, dashKey), prevKey = isY ? String(+dashKey - 1) : C.addMonths(dashKey, -1), pf = fig(dashMode, prevKey);
-    var ly = isY ? null : fig('month', (+dashKey.slice(0, 4) - 1) + dashKey.slice(4));
     var pl = isY ? prevKey : C.MONTHS[+prevKey.slice(5, 7) - 1].slice(0, 3);
-    var label = isY ? dashKey : C.monthLabel(dashKey);
-    function kpi(name, val, cur, prev, lyv, cls) {
-      var d = delta(cur, prev);
-      return '<div class="card kpi ' + (cls || '') + '"><div class="eyebrow">' + name + '</div><div class="n">' + money(val) + '</div><div class="l">' + (d ? esc(d) + ' vs ' + esc(pl) : '&nbsp;') + '</div>' + (lyv != null ? '<div class="l">last year ' + money(lyv) + '</div>' : '') + '</div>';
-    }
-    var h = '<div class="pagehead"><div><div class="eyebrow">Dashboard</div><h1>' + esc(label) + '</h1></div><div class="row"><div class="seg"><button data-act="dashMode" data-m="month" class="' + (isY ? '' : 'on') + '">Month</button><button data-act="dashMode" data-m="year" class="' + (isY ? 'on' : '') + '">Year</button></div>' +
-      '<button class="btn sm ghost" data-act="dashNav" data-n="-1" aria-label="Previous">‹</button><button class="btn sm ghost" data-act="dashNav" data-n="1" aria-label="Next">›</button></div></div>';
-    h += '<div class="grid g4">' + kpi('Income', f.income, f.income, pf.income, ly ? ly.income : null) + kpi('Expenses', f.expenses, f.expenses, pf.expenses, ly ? ly.expenses : null) + kpi('Result', f.net, f.net, pf.net, ly ? ly.net : null) + kpi('Still to collect', f.outstanding, f.outstanding, pf.outstanding, null, f.outstanding ? 'bad' : '') + '</div>';
+    function kpi(name, cur, prev, cls) { var d = delta(cur, prev); return '<div class="card kpi ' + (cls || '') + '"><div class="eyebrow">' + name + '</div><div class="n">' + money(cur) + '</div><div class="l">' + (d ? esc(d) + ' vs ' + esc(pl) : '&nbsp;') + '</div></div>'; }
+    h += '<div class="grid g3">' + kpi('Income', f.income, pf.income) + kpi('Expenses', f.expenses, pf.expenses) + kpi('Result', f.net, pf.net) + '</div>';
     if (f.waived > 0 || f.kept > 0) h += '<p class="tiny muted" style="margin:8px 2px 0">' + (f.kept > 0 ? 'Income includes ' + money(f.kept) + ' of deposits kept. ' : '') + (f.waived > 0 ? money(f.waived) + ' of rent was settled without payment (not counted as income).' : '') + '</p>';
     var year = dashKey.slice(0, 4), ser = Money.yearSeries(S, year, t, grace()), mx = Math.max.apply(null, ser.map(function (x) { return Math.max(x.income, x.expenses); }).concat([1]));
-    h += '<div class="card" style="margin-top:12px"><div class="row between"><h3 style="margin:0">Income over the year</h3><span class="muted small">' + esc(year) + '</span></div><div class="chart">' + ser.map(function (x) {
+    h += '<div class="card" style="margin-top:12px"><div class="row between"><h3 style="margin:0">' + esc(year) + ' by month</h3><span class="tiny muted"><span class="dot inc"></span> Income <span class="dot exp"></span> Expenses</span></div><div class="chart">' + ser.map(function (x) {
       var k = year + '-' + C.pad(x.month), on = !isY && k === dashKey;
       return '<button class="bar2' + (on ? ' on' : '') + '" data-act="dashMonth" data-k="' + k + '" aria-label="' + esc(C.monthLabel(k)) + '"><span class="bars" title="Income ' + money(x.income) + ' · Expenses ' + money(x.expenses) + '"><i class="inc" style="height:' + Math.round(x.income / mx * 100) + '%;z-index:' + (x.income >= x.expenses ? 1 : 2) + '"></i><i class="exp" style="height:' + Math.round(x.expenses / mx * 100) + '%;z-index:' + (x.income >= x.expenses ? 2 : 1) + '"></i></span><span class="m">' + C.MONTHS[x.month - 1].charAt(0) + '</span></button>';
-    }).join('') + '</div><div class="tiny muted"><span class="dot inc"></span> Income <span class="dot exp"></span> Expenses (drawn over income) · tap a month</div></div>';
-    var ids = S.flats.map(function (x) { return x.id; }).concat(f.byFlat[''] ? [''] : []), tot = { due: 0, income: 0, expenses: 0, net: 0, outstanding: 0 };
-    h += '<h3 class="sech">By flat</h3><div class="card tablewrap"><table><thead><tr><th>Flat</th><th class="r">Rent due</th><th class="r">Received</th><th class="r">Expenses</th><th class="r">Result</th><th class="r">To collect</th></tr></thead><tbody>' + ids.map(function (id) {
-      var x = f.byFlat[id] || { due: 0, income: 0, expenses: 0, net: 0, outstanding: 0 }, fl = S.flats.find(function (y) { return y.id === id; });
+    }).join('') + '</div></div>';
+    var ids = S.flats.filter(function (x) { return !x.soldDate || (f.byFlat[x.id] && (f.byFlat[x.id].income || f.byFlat[x.id].expenses)); }).map(function (x) { return x.id; }).concat(f.byFlat[''] ? [''] : []), tot = { income: 0, expenses: 0, net: 0, outstanding: 0 };
+    h += '<h3 class="sech">By flat</h3><div class="card tablewrap"><table><thead><tr><th>Flat</th><th class="r">Received</th><th class="r">Expenses</th><th class="r">Result</th></tr></thead><tbody>' + ids.map(function (id) {
+      var x = f.byFlat[id] || { income: 0, expenses: 0, net: 0, outstanding: 0 }, fl = S.flats.find(function (y) { return y.id === id; });
       Object.keys(tot).forEach(function (k) { tot[k] += x[k]; });
-      return '<tr><td>' + (fl ? '<a href="#/flat/' + fl.id + '">' + esc(fl.name) + '</a>' : '<span class="muted">General</span>') + '</td><td class="r">' + money(x.due) + '</td><td class="r">' + money(x.income) + '</td><td class="r">' + money(x.expenses) + '</td><td class="r">' + money(x.net) + '</td><td class="r">' + (x.outstanding ? '<span style="color:var(--bad)">' + money(x.outstanding) + '</span>' : '–') + '</td></tr>';
-    }).join('') + '<tr><td><b>Total</b></td><td class="r"><b>' + money(tot.due) + '</b></td><td class="r"><b>' + money(tot.income) + '</b></td><td class="r"><b>' + money(tot.expenses) + '</b></td><td class="r"><b>' + money(tot.net) + '</b></td><td class="r"><b>' + money(tot.outstanding) + '</b></td></tr></tbody></table></div>';
+      return '<tr><td>' + (fl ? '<a href="#/flat/' + fl.id + '">' + esc(fl.name) + '</a>' : '<span class="muted">No flat</span>') + '</td><td class="r">' + money(x.income) + '</td><td class="r">' + money(x.expenses) + '</td><td class="r">' + money(x.net) + '</td></tr>';
+    }).join('') + '<tr><td><b>Total</b></td><td class="r"><b>' + money(tot.income) + '</b></td><td class="r"><b>' + money(tot.expenses) + '</b></td><td class="r"><b>' + money(tot.net) + '</b></td></tr></tbody></table></div>';
     var cats = Object.keys(f.byCat).sort(function (a, b) { return f.byCat[b] - f.byCat[a]; }), cm = cats.length ? f.byCat[cats[0]] : 1;
-    var occ = S.flats.filter(function (x) { if (x.soldDate) return false; var r = currentRental(x, t); return r && (!r.end || r.end >= t) && r.start <= t; }).length, rate = f.due ? Math.min(100, Math.round((f.due - f.outstanding) / f.due * 100)) : 100;
-    h += '<div class="grid g2" style="margin-top:12px"><div class="card"><h3 class="sech" style="margin-top:0">Where the money went</h3>' + (cats.length ? cats.map(function (c) { return '<div class="catrow"><div class="row between small"><span>' + esc(c) + '</span><b>' + money(f.byCat[c]) + '</b></div><div class="bar"><i style="width:' + Math.round(f.byCat[c] / cm * 100) + '%"></i></div></div>'; }).join('') : '<div class="muted small">No expenses in this period.</div>') + '</div>' +
-      '<div class="card"><h3 class="sech" style="margin-top:0">Health</h3><div class="small muted">Flats let</div><div class="amt">' + occ + ' of ' + S.flats.filter(function (x) { return !x.soldDate; }).length + '</div><div class="small muted" style="margin-top:14px">Rent collected on time or since</div><div class="amt">' + rate + '%</div><div class="bar"><i style="width:' + rate + '%"></i></div></div></div>';
+    if (cats.length) h += '<details class="card more" style="margin-top:12px"><summary>Where the expenses went</summary><div style="margin-top:10px">' + cats.map(function (c) { return '<div class="catrow"><div class="row between small"><span>' + esc(c) + '</span><b>' + money(f.byCat[c]) + '</b></div><div class="bar"><i style="width:' + Math.round(f.byCat[c] / cm * 100) + '%"></i></div></div>'; }).join('') + '</div></details>';
     return h;
   }
 
@@ -592,7 +575,6 @@
       else if (page === 'rental') { var rr = rentalById(parts[1]); html = viewFlats(rr ? rr.flatId : '', parts[1]); on = 'flats'; }
       else if (page === 'payments') html = viewPayments();
       else if (page === 'expenses') html = viewExpenses();
-      else if (page === 'today') html = viewToday();
       else if (page === 'dashboard') html = viewDashboard();
       else if (page === 'more') html = viewMore();
       else if (page === 'agreements') html = viewAgreements();

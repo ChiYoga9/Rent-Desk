@@ -169,3 +169,10 @@ main { min-width: 0; }
 
 body { font-variant-numeric: tabular-nums; }
 .muted { color: var(--muted); }
+.nrow { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 11px 0; border-top: 1px solid var(--line); }
+.nrow:first-of-type { border-top: 0; }
+.nrow .t { font-weight: 600; } .nrow .t a { text-decoration: none; color: var(--ink); }
+.nact { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.badtxt { color: var(--bad); font-weight: 600; }
+details.more .nrow:first-of-type { border-top: 1px solid var(--line); }
+@media (max-width: 560px) { .nrow { flex-direction: column; align-items: stretch; gap: 8px; } .nact { justify-content: flex-start; } }
