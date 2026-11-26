@@ -368,6 +368,7 @@
   function delta(cur, prev) { if (!prev) return ''; var p = Math.round((cur - prev) / Math.abs(prev) * 100); return p === 0 ? '= same' : (p > 0 ? '↑ ' : '↓ ') + Math.abs(p) + '%'; }
   /* Things that need the owner, grouped so each flat appears once, most urgent flat first. */
   function needsList(t) {
+    var mshort = function (k) { return C.MONTHS[+k.slice(5, 7) - 1].slice(0, 3) + (k.slice(0, 4) === t.slice(0, 4) ? '' : ' ' + k.slice(0, 4)); };
     var groups = {}, order = [];
     var grp = function (id, title) { if (!groups[id]) { groups[id] = { title: title, issues: [], acts: [], sev: 9, amt: 0 }; order.push(id); } return groups[id]; };
     var add = function (g, sev, text, act) { g.issues.push({ sev: sev, text: text }); if (sev < g.sev) g.sev = sev; if (act && g.acts.length < 2 && g.acts.every(function (x) { return x.k !== act.k; })) g.acts.push(act); };
@@ -375,16 +376,16 @@
     var rent = allDues(t).filter(function (d) { return d.status === 'overdue' || d.status === 'due' || d.status === 'soon'; });
     rent.forEach(function (d) {
       var g = grp(d.r.id, link(d.r)), pr = C.latestPromise(d.r, t), sev = d.status === 'overdue' ? 0 : d.status === 'due' ? 1 : 2;
-      var when = d.status === 'overdue' ? '<span class="badtxt">' + d.daysLate + ' days late</span>' : d.status === 'due' ? 'due today' : 'due ' + esc(C.shortDate(d.dueDate));
+      var when = d.status === 'overdue' ? '<span class="badtxt">' + d.daysLate + ' d late</span>' : d.status === 'due' ? 'due today' : 'due ' + esc(C.shortDate(d.dueDate));
       g.amt += d.balance;
-      add(g, sev, esc(C.monthLabel(d.key)) + ' rent ' + money(d.balance) + ' ' + when + (pr ? ' (promised ' + esc(C.shortDate(pr)) + ')' : ''), { k: 'paid' + d.key, h: '<button class="btn sm olive" data-act="pay" data-r="' + d.r.id + '" data-k="' + d.key + '">Paid</button>' });
-      if (!C.phoneDigits(d.r.tenant.phone, S.settings.countryCode)) add(g, sev, 'no phone number', null); else add(g, sev, '', { k: 'wa', h: '<button class="btn sm wa" data-act="waNow" data-r="' + d.r.id + '" data-k="' + d.key + '">WhatsApp</button>' });
+      add(g, sev, esc(mshort(d.key)) + ' rent ' + money(d.balance) + ' ' + when + (pr ? ' (promised ' + esc(C.shortDate(pr)) + ')' : ''), { k: 'paid' + d.key, h: '<button class="btn sm olive" data-act="pay" data-r="' + d.r.id + '" data-k="' + d.key + '">Paid</button>' });
+      if (!C.phoneDigits(d.r.tenant.phone, S.settings.countryCode)) add(g, sev, 'no phone', null); else add(g, sev, '', { k: 'wa', h: '<button class="btn sm wa" data-act="waNow" data-r="' + d.r.id + '" data-k="' + d.key + '">WhatsApp</button>' });
     });
     S.rentals.forEach(function (r) {
       if (r.end && r.end < t) return;
       var g = grp(r.id, link(r)), ag = r.agreement || {};
-      if (+r.deposit > 0 && !r.depositReceived && !r.depositSettlement) add(g, 3, 'deposit ' + money(r.deposit) + ' not received', { k: 'dep', h: '<button class="btn sm olive" data-act="depositRecv" data-r="' + r.id + '">Deposit received</button>' });
-      if (ag.status === 'sent') add(g, 4, 'agreement waiting for signature', { k: 'agr', h: '<a class="btn sm ghost" href="#/agreement/' + r.id + '">Agreement</a>' });
+      if (+r.deposit > 0 && !r.depositReceived && !r.depositSettlement) add(g, 3, 'deposit ' + money(r.deposit) + ' due', { k: 'dep', h: '<button class="btn sm olive" data-act="depositRecv" data-r="' + r.id + '">Got deposit</button>' });
+      if (ag.status === 'sent') add(g, 4, 'agreement unsigned', { k: 'agr', h: '<a class="btn sm ghost" href="#/agreement/' + r.id + '">Agreement</a>' });
       if (r.start > t) add(g, 5, 'moves in ' + esc(C.shortDate(r.start)), null);
       if (r.end && r.start <= t && C.diffDays(r.end, t) <= 60) add(g, 5, 'lease ends ' + esc(C.shortDate(r.end)) + ' (' + C.diffDays(r.end, t) + ' days)', { k: 'ren', h: '<button class="btn sm ghost" data-act="renew" data-r="' + r.id + '">Renew</button>' });
     });
@@ -405,7 +406,7 @@
     if (!S.flats.length) return h + '<div class="card empty"><h3>Welcome to Rent Desk</h3><p>Add your flats, set up each rental with the rent and dates, and this page will tell you every morning who to follow up with. Agreements are drafted for you, ready to sign.</p><div class="btns" style="justify-content:center"><button class="btn" data-act="addFlat">Add my first flat</button><button class="btn ghost" data-act="sample">Try with sample data</button></div></div>';
     var nag = S.rentals.length && (!S.settings.lastBackup || C.diffDays(t, S.settings.lastBackup) > 30);
     if (nag && !cfg.url) h += '<div class="notice">Your data is saved on this device only. <button class="btn sm ghost" data-act="backup" style="margin-left:6px">Back up now</button></div>';
-    var need = needsList(t), cap = 5;
+    var need = needsList(t), cap = window.innerWidth < 560 ? 3 : 5;
     h += '<div class="card" style="margin-bottom:12px"><h3 style="margin:0 0 4px">Needs you' + (need.length ? ' <span class="pill grey">' + need.length + '</span>' : '') + '</h3>' +
       (need.length ? need.slice(0, cap).join('') + (need.length > cap ? '<details class="more"><summary>' + (need.length - cap) + ' more</summary>' + need.slice(cap).join('') + '</details>' : '') : '<div class="muted small" style="padding:6px 0 2px">Nothing needs you right now.</div>') + '</div>';
     var fig = function (mode, key) { var rg = Money.range(mode, key); return Money.figures(S, rg.from, rg.to, t, grace()); };
@@ -413,7 +414,7 @@
     var pl = isY ? prevKey : C.MONTHS[+prevKey.slice(5, 7) - 1].slice(0, 3);
     function kpi(name, cur, prev, cls) { var d = delta(cur, prev); return '<div class="card kpi ' + (cls || '') + '"><div class="eyebrow">' + name + '</div><div class="n">' + money(cur) + '</div><div class="l">' + (d ? esc(d) + ' vs ' + esc(pl) : '&nbsp;') + '</div></div>'; }
     h += '<div class="grid g3">' + kpi('Income', f.income, pf.income) + kpi('Expenses', f.expenses, pf.expenses) + kpi('Result', f.net, pf.net) + '</div>';
-    if (f.waived > 0 || f.kept > 0) h += '<p class="tiny muted" style="margin:8px 2px 0">' + (f.kept > 0 ? 'Income includes ' + money(f.kept) + ' of deposits kept. ' : '') + (f.waived > 0 ? money(f.waived) + ' of rent was settled without payment (not counted as income).' : '') + '</p>';
+    if (f.waived > 0 || f.kept > 0) h += '<p class="tiny muted incnote" style="margin:8px 2px 0">' + (f.kept > 0 ? 'Income includes ' + money(f.kept) + ' of deposits kept. ' : '') + (f.waived > 0 ? money(f.waived) + ' of rent was settled without payment (not counted as income).' : '') + '</p>';
     var year = dashKey.slice(0, 4), ser = Money.yearSeries(S, year, t, grace()), mx = Math.max.apply(null, ser.map(function (x) { return Math.max(x.income, x.expenses); }).concat([1]));
     h += '<div class="card" style="margin-top:12px"><div class="row between"><h3 style="margin:0">' + esc(year) + ' by month</h3><span class="tiny muted"><span class="dot inc"></span> Income <span class="dot exp"></span> Expenses</span></div><div class="chart">' + ser.map(function (x) {
       var k = year + '-' + C.pad(x.month), on = !isY && k === dashKey;
@@ -439,7 +440,9 @@
     var flatName = function (id) { var f = S.flats.find(function (x) { return x.id === id; }); return f ? f.name : 'No flat'; };
     var h = '<div class="pagehead"><div><h1>Expenses</h1></div><div class="row"><button class="btn sm ghost" data-act="expNav" data-n="-1" aria-label="Previous month">‹</button><input type="month" id="expPick" value="' + expMonth + '" aria-label="Jump to month" style="width:auto;min-width:150px"><button class="btn sm ghost" data-act="expNav" data-n="1" aria-label="Next month">›</button><button class="btn" data-act="addExpense">+ Add</button><button class="btn ghost" data-act="pastExpenses">Older expenses</button></div></div>';
     h += '<div class="chips" style="margin-bottom:10px"><button class="chip' + (expFlat ? '' : ' on') + '" data-act="expFlat" data-f="">All flats</button>' + S.flats.map(function (f) { return '<button class="chip' + (expFlat === f.id ? ' on' : '') + '" data-act="expFlat" data-f="' + f.id + '">' + esc(f.name) + '</button>'; }).join('') + '</div>';
-    h += '<div class="card"><div class="row between wrapx"><div><div class="amt">' + money(total) + '</div><div class="muted small">' + list.length + ' expense(s) this month</div></div><div class="chips">' + Object.keys(by).sort(function (a, b) { return by[b] - by[a]; }).slice(0, 4).map(function (k) { return '<span class="pill grey">' + esc(k) + ' ' + money(by[k]) + '</span>'; }).join('') + '</div></div></div>';
+    var isRec = function (e) { return !!(e.auto || e.billId); }, recT = list.filter(isRec).reduce(function (a, e) { return a + (+e.amount); }, 0), othT = total - recT;
+    var tot = function (label, v, n) { return '<div><div class="eyebrow">' + label + '</div><div class="amt">' + money(v) + '</div><div class="tiny muted">' + n + '</div></div>'; };
+    h += '<div class="card row between wrapx" style="gap:18px">' + tot('Recurring', recT, list.filter(isRec).length + ' bill(s)') + tot('Other', othT, list.filter(function (e) { return !isRec(e); }).length + ' expense(s)') + tot('Total', total, esc(C.MONTHS[+expMonth.slice(5, 7) - 1]) + ' ' + esc(expMonth.slice(0, 4))) + '</div>';
     h += '<div class="card tablewrap" style="margin-top:12px"><table><tbody>' + (list.length ? list.map(function (e) {
       return '<tr class="click" data-act="editExpense" data-e="' + e.id + '"><td class="nowrap">' + esc(C.shortDate(e.date)) + '</td><td>' + esc(e.description || e.category) + '<div class="tiny muted">' + esc(e.category) + ' · ' + esc(flatName(e.flatId)) + (e.auto ? ' · automatic' : '') + '</div></td><td class="r nowrap"><b>' + money(e.amount) + '</b></td></tr>';
     }).join('') : '<tr><td class="muted">Nothing recorded this month.</td></tr>') + '</tbody></table></div>';
