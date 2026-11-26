@@ -69,7 +69,7 @@
 
   /* What happens to the security deposit when a tenant leaves on `leave`.
      Unpaid rent up to the leaving date is settled from the deposit, oldest month first.
-     Leaving before the agreed end date forfeits the rest of the deposit (unless opts.forfeit === false).
+     Leaving before the lock-in period (if set) or the agreed end date forfeits the rest of the deposit (unless opts.forfeit === false).
      Otherwise the landlord may keep deductions (damage, cleaning) and the rest is refunded.
      A deposit that was never marked as received (r.depositReceived empty) counts as nothing held.
      opts: { forfeit: bool, deductions: [{label, amount}] } */
@@ -80,7 +80,8 @@
     var owed = round2(dues.reduce(function (s, d) { return s + d.balance; }, 0)), deposit = r.depositReceived ? round2(+r.deposit || 0) : 0, rem = deposit, applied = [];
     dues.forEach(function (d) { var a = round2(Math.min(rem, d.balance)); if (a > 0) { applied.push({ key: d.key, amount: a }); rem = round2(rem - a); } });
     var appliedTotal = round2(applied.reduce(function (s, a) { return s + a.amount; }, 0));
-    var agreed = r.agreedEnd || r.end, early = !!(agreed && leave < agreed);
+    var lockEnd = (+r.lockIn > 0 && r.start) ? C.addDays(C.iso(new Date(C.parse(r.start).getFullYear(), C.parse(r.start).getMonth() + (+r.lockIn), C.parse(r.start).getDate())), -1) : '';
+    var agreed = r.agreedEnd || lockEnd || r.end, early = !!(agreed && leave < agreed);
     var forfeit = early && opts.forfeit !== false && deposit > 0;
     var ded = round2((opts.deductions || []).reduce(function (s, x) { return s + (+x.amount || 0); }, 0));
     var out = { leave: leave, early: early, deposit: deposit, owed: owed, applied: applied, appliedTotal: appliedTotal, shortfall: round2(owed - appliedTotal), forfeit: forfeit, deductions: ded, forfeited: 0, kept: 0, refund: 0, extraOwed: 0 };

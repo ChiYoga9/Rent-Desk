@@ -220,7 +220,7 @@
       var ag = r.agreement || {};
       return '<div class="card row between wrapx"><div class="grow"><div class="t" style="font-weight:700">' + esc(flatOf(r).name) + ' · ' + esc(r.tenant.name) + '</div><div class="muted small">' + esc(C.longDate(r.start)) + (r.end ? ' → ' + esc(C.longDate(r.end)) : ' → open-ended') + ' · ' + money(r.rent) + '/month</div></div>' + agPill(ag) + '<a class="btn sm" href="#/agreement/' + r.id + '">' + (ag.status && ag.status !== 'none' ? 'Open' : 'Draft') + '</a></div>';
     }).join('') + '</div>';
-    return h + '<p class="tiny muted" style="margin-top:18px">The standard text is a general residential template. Have it checked against the rules where the flat is, and edit the template in Settings.</p>';
+    return h + '<p class="tiny muted" style="margin-top:18px">The wording follows your own rent agreement template. Have it checked against the rules where the flat is, and edit the template in Settings.</p>';
   }
 
   function agText(r) {
@@ -230,7 +230,7 @@
   }
   function sigBlockHTML(r) {
     var ag = r.agreement || {}, L = S.settings.landlord, f = function (img, name, role, date) { return '<div><div class="box">' + (img ? '<img alt="' + role + ' signature" src="' + img + '">' : '') + '</div><div class="cap">' + role + '</div><div><strong>' + esc(name || '') + '</strong></div><div class="cap">Date: ' + (date ? esc(C.longDate(date)) : '______________') + '</div></div>'; };
-    return '<div class="sigs">' + f(ag.sigL, L.name, 'Landlord', ag.sigLDate) + f(ag.sigT, r.tenant.name, 'Tenant', ag.sigTDate) + '</div>';
+    return '<div class="sigs">' + f(ag.sigL, L.name, 'Owner / First party', ag.sigLDate) + f(ag.sigT, r.tenant.name, 'Tenant / Second party', ag.sigTDate) + '</div>';
   }
   function viewAgreement(id) {
     var r = rentalById(id); if (!r) return '<div class="card empty"><h3>Not found</h3><a class="btn" href="#/agreements">Back</a></div>';
@@ -558,7 +558,7 @@
     openDlg('<h3>' + (ended ? 'Settle the deposit' : 'End tenancy') + '</h3><p class="muted small" style="margin:6px 0 0">' + esc(flatOf(r).name) + ' · ' + esc(r.tenant.name) + '</p><form id="ef" novalidate><div class="fgrid">' +
       fieldHTML({ name: 'leave', label: 'Tenant leaves on', type: 'date', full: true }, { leave: ended ? r.end : t }) +
       ((+r.deposit > 0 && !r.depositReceived) ? '<div class="notice" style="grid-column:1/-1">The deposit of ' + money(r.deposit) + ' was never marked as received, so nothing is held against the rent. If it was paid, close this and use Mark received first.</div>' : '') + (+r.deposit > 0 && r.depositReceived ? fieldHTML({ name: 'ded', label: 'Deductions (damage, cleaning)', type: 'number', step: '0.01', min: 0 }, { ded: '' }) + fieldHTML({ name: 'dedLabel', label: 'For' }, { dedLabel: '' }) : '') + '</div>' +
-      '<label class="chk hide" id="forfRow"><input type="checkbox" name="forfeit" checked> <span>Left before the agreed end date: the deposit is forfeited</span></label><div class="sumbox" id="sum"></div>' +
+      '<label class="chk hide" id="forfRow"><input type="checkbox" name="forfeit" checked> <span>Left before the lock-in / agreed end date: the deposit is forfeited</span></label><div class="sumbox" id="sum"></div>' +
       '<div class="foot"><button type="button" class="btn ghost" data-act="close">Cancel</button><button class="btn" type="submit">' + (ended ? 'Settle' : 'End tenancy') + '</button></div></form>');
     var form = $('#ef');
     function opts() { var f = form.elements; return { forfeit: f.forfeit.checked, deductions: f.ded && +f.ded.value > 0 ? [{ label: (f.dedLabel.value || 'Deductions').trim(), amount: +f.ded.value }] : [] }; }
@@ -647,7 +647,7 @@
     if (!S.flats.length) { toast('Add a flat first.'); return flatForm(); }
     var prev = !base && flatId ? flatRentals({ id: flatId })[0] : null;
     var tkn = base ? tokenOf(base) : null;
-    var v = base ? { depositReceived: copyFrom ? '' : (base.depositReceived || ''), tokenAmt: tkn && !copyFrom ? tkn.amount : '', tokenDate: tkn && !copyFrom ? tkn.date : '', flatId: base.flatId, tname: base.tenant.name, tphone: base.tenant.phone, temail: base.tenant.email, tid: base.tenant.idNo, taddr: base.tenant.address, start: copyFrom ? C.addDays(copyFrom.end || t, 1) : base.start, end: copyFrom ? '' : base.end, rent: base.rent, dueDay: base.dueDay, deposit: base.deposit, noticeDays: base.noticeDays, escalation: base.escalation, trackFrom: copyFrom ? '' : base.trackFrom, utilities: base.utilities, extra: base.extra, pref: base.pref } : { flatId: flatId || S.flats[0].id, start: prev ? t : '', rent: prev ? prev.rent : '', dueDay: prev ? prev.dueDay : 1, noticeDays: prev ? prev.noticeDays : 30, escalation: prev ? prev.escalation : 0, deposit: prev ? prev.deposit : 0, tokenDate: t, pref: 'wa' };
+    var v = base ? { depositReceived: copyFrom ? '' : (base.depositReceived || ''), tokenAmt: tkn && !copyFrom ? tkn.amount : '', tokenDate: tkn && !copyFrom ? tkn.date : '', flatId: base.flatId, tname: base.tenant.name, tphone: base.tenant.phone, temail: base.tenant.email, tid: base.tenant.idNo, taddr: base.tenant.address, start: copyFrom ? C.addDays(copyFrom.end || t, 1) : base.start, end: copyFrom ? '' : base.end, rent: base.rent, dueDay: base.dueDay, deposit: base.deposit, noticeDays: base.noticeDays, lockIn: base.lockIn || '', escalation: base.escalation, trackFrom: copyFrom ? '' : base.trackFrom, utilities: base.utilities, extra: base.extra, pref: base.pref } : { flatId: flatId || S.flats[0].id, start: prev ? t : '', rent: prev ? prev.rent : '', dueDay: prev ? prev.dueDay : 1, noticeDays: prev ? prev.noticeDays : 30, escalation: prev ? prev.escalation : 0, deposit: prev ? prev.deposit : 0, tokenDate: t, pref: 'wa' };
     openForm({ title: id ? 'Edit rental' : copyFrom ? 'Renew rental' : 'New rental', intro: 'This holds the basics of the rental agreement. The agreement and the follow-up dates are made from it.', submit: id ? 'Save' : 'Create rental',
       fields: [
         { name: 'flatId', label: 'Flat', type: 'select', options: S.flats.map(function (f) { return [f.id, f.name]; }), full: true },
@@ -655,7 +655,7 @@
         { more: true, name: 'taddr', label: 'Tenant\'s own address (optional)', full: true, hint: 'Their permanent address, used in the agreement.' },
         { name: 'start', label: 'Rental starts', type: 'date', required: true }, { name: 'end', label: 'Rental ends', type: 'date', hint: 'Leave empty if open-ended.' },
         { name: 'rent', label: 'Monthly rent', type: 'number', step: '0.01', min: 0, required: true }, { name: 'dueDay', label: 'Rent due on day', type: 'number', min: 1, max: 31, required: true, hint: 'Day of the month, 1 to 31.' },
-        { name: 'deposit', label: 'Security deposit', type: 'number', step: '0.01', min: 0 }, { name: 'depositReceived', label: 'Deposit received on', type: 'date', hint: 'Leave empty until it is paid. You can also use Mark received later.' }, { name: 'tokenAmt', label: 'Token / advance received', type: 'number', step: '0.01', min: 0, hint: 'Booking money paid before moving in. It is taken off the first rent.' }, { name: 'tokenDate', label: 'Token received on', type: 'date' }, { more: true, name: 'noticeDays', label: 'Notice period (days)', type: 'number', min: 0 },
+        { name: 'deposit', label: 'Security deposit', type: 'number', step: '0.01', min: 0 }, { name: 'depositReceived', label: 'Deposit received on', type: 'date', hint: 'Leave empty until it is paid. You can also use Mark received later.' }, { name: 'tokenAmt', label: 'Token / advance received', type: 'number', step: '0.01', min: 0, hint: 'Booking money paid before moving in. It is taken off the first rent.' }, { name: 'tokenDate', label: 'Token received on', type: 'date' }, { more: true, name: 'noticeDays', label: 'Notice period (days)', type: 'number', min: 0 }, { more: true, name: 'lockIn', label: 'Lock-in period (months)', type: 'number', min: 0, hint: 'Leaving before this forfeits the deposit. Empty means the whole term.' },
         { more: true, name: 'escalation', label: 'Yearly rent increase (%)', type: 'number', step: '0.1', min: 0 },
         { more: true, name: 'trackFrom', label: 'Start tracking payments from', type: 'date', full: true, hint: 'Already renting for a while? Pick the first month you want followed up. Empty means this month, or the start date if later.' },
         { more: true, name: 'utilities', label: 'Utilities and charges (optional)', type: 'textarea', rows: 2, full: true, hint: 'Who pays what. Empty uses the standard sentence.' },
@@ -665,7 +665,7 @@
         if (d.end && d.end < d.start) { toast('The end date is before the start date.'); return false; }
         var monthStart = t.slice(0, 7) + '-01', tf = d.trackFrom || (d.start > monthStart ? d.start : monthStart);
         var o = id ? base : { id: C.uid(), payments: [], followups: [], agreement: { status: 'none' } };
-        Object.assign(o, { flatId: d.flatId, tenant: { name: d.tname, phone: d.tphone, email: d.temail, idNo: d.tid, address: d.taddr }, start: d.start, end: d.end, rent: +d.rent, dueDay: +d.dueDay, deposit: +d.deposit || 0, depositReceived: (+d.deposit > 0 && d.depositReceived) ? d.depositReceived : '', noticeDays: +d.noticeDays || 30, escalation: +d.escalation || 0, trackFrom: tf, utilities: d.utilities, extra: d.extra, pref: d.pref });
+        Object.assign(o, { flatId: d.flatId, tenant: { name: d.tname, phone: d.tphone, email: d.temail, idNo: d.tid, address: d.taddr }, start: d.start, end: d.end, rent: +d.rent, dueDay: +d.dueDay, deposit: +d.deposit || 0, depositReceived: (+d.deposit > 0 && d.depositReceived) ? d.depositReceived : '', noticeDays: +d.noticeDays || 30, lockIn: +d.lockIn || 0, escalation: +d.escalation || 0, trackFrom: tf, utilities: d.utilities, extra: d.extra, pref: d.pref });
         o.payments = (o.payments || []).filter(function (p) { return p.method !== 'Token'; });
         if (+d.tokenAmt > 0) {
           var rem = +d.tokenAmt, dd = C.buildDues(Object.assign({}, o, { trackFrom: '' }), t);
@@ -771,7 +771,7 @@
   function buildPdf(r) {
     var ag = r.agreement || {}, L = S.settings.landlord;
     return PDF.build({ blocks: A.toBlocks(agText(r)), footer: 'Rental agreement · ' + flatOf(r).name + ' · ' + r.tenant.name,
-      sign: { left: { role: 'Landlord', name: L.name, img: ag.sigL, date: ag.sigLDate ? C.longDate(ag.sigLDate) : '' }, right: { role: 'Tenant', name: r.tenant.name, img: ag.sigT, date: ag.sigTDate ? C.longDate(ag.sigTDate) : '' } } });
+      sign: { left: { role: 'Owner / First party', name: L.name, img: ag.sigL, date: ag.sigLDate ? C.longDate(ag.sigLDate) : '' }, right: { role: 'Tenant / Second party', name: r.tenant.name, img: ag.sigT, date: ag.sigTDate ? C.longDate(ag.sigTDate) : '' } } });
   }
   function pdfName(r) { return safeName('Rental agreement - ' + flatOf(r).name + ' - ' + r.tenant.name) + '.pdf'; }
   function sendSheet(rid) {
