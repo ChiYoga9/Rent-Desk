@@ -99,6 +99,7 @@
   /* ---------- helpers ---------- */
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var today = function () { return C.todayISO(); };
+  var dateY = function (d) { return d ? C.shortDate(d) + ' ' + d.slice(0, 4) : ''; };
   var money = function (n) { return A.money(+n || 0, S.settings.currency); };
   var flatOf = function (r) { return S.flats.find(function (f) { return f.id === r.flatId; }) || { name: '(removed flat)', address: '' }; };
   var rentalById = function (id) { return S.rentals.find(function (r) { return r.id === id; }); };
@@ -217,7 +218,7 @@
       }).join('') + '</tbody></table></div><div class="tiny muted" style="margin:8px 2px 0"><span class="cell paid sm">✓</span> paid &nbsp; <span class="cell part sm">½</span> part paid &nbsp; <span class="cell due sm">•</span> due soon &nbsp; <span class="cell late sm">!</span> late &nbsp; <span class="cell fut sm">·</span> later. Tap a square to record or change a month.</div>';
     } else {
       sched.forEach(function (x) {
-        h += '<h3 class="sech">' + esc(x.r.tenant.name) + ' <span class="muted small">' + esc(C.shortDate(x.r.start)) + (x.r.end ? ' to ' + esc(C.shortDate(x.r.end)) : '') + '</span></h3><div class="card">' + tilesHTML(x.r, x.ds, false) + '</div>';
+        h += '<h3 class="sech">' + esc(x.r.tenant.name) + ' <span class="muted small">' + esc(dateY(x.r.start)) + (x.r.end ? ' to ' + esc(dateY(x.r.end)) : ' onwards') + '</span></h3><div class="card">' + tilesHTML(x.r, x.ds, false) + '</div>';
       });
     }
     return h;
@@ -334,14 +335,14 @@
     h += rentalBlock(f, r, t);
     var others = rs.filter(function (x) { return x.id !== r.id; });
     if (!(r.depositSettlement || (r.end && r.end < t))) h += '<div style="margin-top:14px"><button class="btn sm ghost" data-act="newRental" data-f="' + f.id + '">+ Next tenant</button></div>';
-    if (others.length) h += '<p class="tiny muted" style="margin-top:14px">Other tenancies: ' + others.map(function (x) { return '<a href="#/rental/' + x.id + '">' + esc(x.tenant.name) + ' (' + esc(C.shortDate(x.start)) + ')</a>'; }).join(', ') + '</p>';
+    if (others.length) h += '<p class="tiny muted" style="margin-top:14px">Other tenancies: ' + others.map(function (x) { return '<a href="#/rental/' + x.id + '">' + esc(x.tenant.name) + ' (' + esc(dateY(x.start)) + ')</a>'; }).join(', ') + '</p>';
     return h;
   }
 
   function rentalBlock(f, r, t) {
     var ds = C.schedule(r, t, grace()), T = r.tenant, ph = C.phoneDigits(T.phone, S.settings.countryCode), ag = r.agreement || {}, st = r.depositSettlement;
     var ended = r.end && r.end < t, rc = (r.revisions || []).slice().sort(function (a, b) { return a.from < b.from ? -1 : 1; });
-    var h = '<div class="card"><div class="row between wrapx"><div><div class="t">' + esc(T.name) + (ended ? ' <span class="pill grey">Ended</span>' : r.start > t ? ' <span class="pill warn">Reserved · moves in ' + esc(C.shortDate(r.start)) + '</span>' : '') + '</div><div class="muted small">' + money(r.rent) + ' / month · due day ' + esc(r.dueDay) + ' · ' + esc(C.shortDate(r.start)) + ' to ' + (r.end ? esc(C.longDate(r.end)) : 'open-ended') + '</div></div>' +
+    var h = '<div class="card"><div class="row between wrapx"><div><div class="t">' + esc(T.name) + (ended ? ' <span class="pill grey">Ended</span>' : r.start > t ? ' <span class="pill warn">Reserved · moves in ' + esc(C.shortDate(r.start)) + '</span>' : '') + '</div><div class="muted small">' + money(r.rent) + ' / month · due day ' + esc(r.dueDay) + ' · ' + esc(dateY(r.start)) + ' to ' + (r.end ? esc(dateY(r.end)) : 'open-ended') + '</div></div>' +
       '<div class="btns">' + (T.phone ? '<a class="btn sm ghost" href="tel:' + esc(T.phone.replace(/\s/g, '')) + '">Call</a>' : '') + (ph ? '<a class="btn sm ghost" target="_blank" rel="noopener" href="https://wa.me/' + ph + '">WhatsApp</a>' : '') + '</div></div>';
     if (rc.length) h += '<div class="tiny muted" style="margin-top:6px">Rent changes: ' + rc.map(function (x) { return esc(C.monthLabel(x.from.slice(0, 7))) + ' → ' + money(x.rent); }).join(' · ') + '</div>';
     var tk = tokenOf(r); if (tk) h += '<div class="small" style="margin-top:8px">Token received: <b>' + money(tk.amount) + '</b> on ' + esc(C.shortDate(tk.date)) + ' <span class="muted">· taken off the first rent</span></div>';
