@@ -167,6 +167,25 @@
 
 
   /* ---------- views ---------- */
+  var monthSym = function (d) { return d.status === 'paid' ? ['\u2713', 'paid'] : d.amount <= 0 ? ['\u2013', 'none'] : d.status === 'overdue' ? ['!', 'late'] : d.partial ? ['\u00bd', 'part'] : d.status === 'due' || d.status === 'soon' ? ['\u2022', 'due'] : ['\u00b7', 'fut']; };
+  /* one small tile per month: month, status mark, amount. Tap for the actions. */
+  function tilesHTML(r, ds, withYear) {
+    return '<div class="tiles">' + ds.map(function (d) {
+      var sy = monthSym(d), mi = +d.key.slice(5, 7) - 1;
+      return '<button class="tile ' + sy[1] + '" data-act="rentCell" data-r="' + r.id + '" data-k="' + d.key + '" title="' + esc(C.monthLabel(d.key) + ': ' + money(d.amount) + ' due, ' + money(d.paid) + ' paid') + '"><span class="tm">' + esc(C.MONTHS[mi].slice(0, 3)) + (withYear ? ' \u2019' + d.key.slice(2, 4) : '') + '</span><span class="ts">' + sy[0] + '</span><span class="ta">' + money(d.amount) + '</span></button>';
+    }).join('') + '</div>';
+  }
+  /* what you can do with one month of rent */
+  function monthActions(rid, key) {
+    var r = rentalById(rid), d = C.schedule(r, today(), grace()).find(function (x) { return x.key === key; }); if (!d) return;
+    var pays = (r.payments || []).filter(function (p) { return p.key === key; }).sort(function (a, b) { return a.date < b.date ? 1 : -1; });
+    var phone = !!C.phoneDigits(r.tenant.phone, S.settings.countryCode), unpaid = d.status !== 'paid' && d.amount > 0;
+    var status = d.status === 'paid' ? 'Paid' + (pays[0] ? ' ' + C.shortDate(pays[0].date) : '') : d.partial ? money(d.paid) + ' paid, ' + money(d.balance) + ' left' : d.status === 'future' ? 'Not due yet' : '';
+    openDlg('<h3>' + esc(C.monthLabel(key)) + ' \u00b7 ' + money(d.amount) + '</h3><p class="muted small" style="margin:6px 0 0">' + esc(flatOf(r).name) + ' \u00b7 ' + esc(r.tenant.name) + '</p><p style="margin:12px 0 4px">' + pillFor(d) + ' <span class="small muted">' + esc(status) + ' \u00b7 due ' + esc(C.shortDate(d.dueDate)) + '</span></p>' +
+      '<div class="btns" style="margin-top:14px">' + (unpaid ? '<button class="btn olive" data-act="pay" data-r="' + rid + '" data-k="' + key + '">Mark paid</button>' : '') + (unpaid && phone && d.status !== 'future' ? '<button class="btn wa" data-act="waNowClose" data-r="' + rid + '" data-k="' + key + '">WhatsApp</button>' : '') + '<button class="btn ghost" data-act="editMonth" data-r="' + rid + '" data-k="' + key + '">Change amount or date</button></div>' +
+      '<div class="foot"><button class="btn ghost" data-act="close">Close</button></div>');
+  }
+
   /* ---------- rent page: pick a flat (or all), one year at a time ---------- */
   var rentYear = '', rentFlat = '';
   function viewPayments() {
@@ -187,7 +206,7 @@
     if (!sched.length) return h + '<div class="card muted" style="margin-top:12px">No rent falls due in ' + esc(rentYear) + '.</div>';
     if (!rentFlat) {
       /* all flats: one row per tenancy, one small square per month */
-      var sym = function (d) { return d.status === 'paid' ? ['✓', 'paid'] : d.amount <= 0 ? ['–', 'none'] : d.status === 'overdue' ? ['!', 'late'] : d.partial ? ['½', 'part'] : d.status === 'due' || d.status === 'soon' ? ['•', 'due'] : ['·', 'fut']; };
+      var sym = monthSym;
       h += '<div class="card tablewrap" style="margin-top:12px"><table class="mx"><thead><tr><th></th>' + C.MONTHS.map(function (m) { return '<th>' + esc(m.slice(0, 3)) + '</th>'; }).join('') + '</tr></thead><tbody>' + sched.map(function (x) {
         return '<tr><td class="mxn"><a href="#/rental/' + x.r.id + '">' + esc(flatOf(x.r).name) + '</a><div class="tiny muted">' + esc(x.r.tenant.name) + '</div></td>' + C.MONTHS.map(function (m, i) {
           var d = x.ds.find(function (y) { return y.key === rentYear + '-' + C.pad(i + 1); });
@@ -198,12 +217,7 @@
       }).join('') + '</tbody></table></div><div class="tiny muted" style="margin:8px 2px 0"><span class="cell paid sm">✓</span> paid &nbsp; <span class="cell part sm">½</span> part paid &nbsp; <span class="cell due sm">•</span> due soon &nbsp; <span class="cell late sm">!</span> late &nbsp; <span class="cell fut sm">·</span> later. Tap a square to record or change a month.</div>';
     } else {
       sched.forEach(function (x) {
-        h += '<h3 class="sech">' + esc(x.r.tenant.name) + ' <span class="muted small">' + esc(C.shortDate(x.r.start)) + (x.r.end ? ' to ' + esc(C.shortDate(x.r.end)) : '') + '</span></h3><div class="card">' + x.ds.map(function (d) {
-          var pays = (x.r.payments || []).filter(function (p) { return p.key === d.key; }).sort(function (a, b) { return a.date < b.date ? 1 : -1; }), lp = pays[0];
-          var sub = money(d.amount) + ' · due ' + esc(C.shortDate(d.dueDate)) + (d.status === 'paid' ? (lp ? ' · ' + (lp.waived ? 'settled' : lp.method === 'Deposit' ? 'from deposit' : 'paid ' + esc(C.shortDate(lp.date))) : '') : d.partial ? ' · ' + money(d.paid) + ' paid' : '');
-          var act = (d.status === 'paid' || d.status === 'future' ? '' : '<button class="btn sm olive" data-act="pay" data-r="' + x.r.id + '" data-k="' + d.key + '">Paid</button>') + ((d.status === 'overdue' || d.status === 'due') ? '<button class="btn sm ghost" data-act="remind" data-r="' + x.r.id + '" data-k="' + d.key + '">Remind</button>' : '') + '<button class="btn sm ghost" data-act="editMonth" data-r="' + x.r.id + '" data-k="' + d.key + '" aria-label="Change this month">⋯</button>';
-          return '<div class="nrow inl' + (d.status === 'future' ? ' dim' : '') + '"><div class="grow"><div class="t">' + esc(C.monthLabel(d.key).replace(' ' + rentYear, '')) + ' ' + pillFor(d) + '</div><div class="s muted small">' + sub + '</div></div><div class="nact">' + act + '</div></div>';
-        }).join('') + '</div>';
+        h += '<h3 class="sech">' + esc(x.r.tenant.name) + ' <span class="muted small">' + esc(C.shortDate(x.r.start)) + (x.r.end ? ' to ' + esc(C.shortDate(x.r.end)) : '') + '</span></h3><div class="card">' + tilesHTML(x.r, x.ds, false) + '</div>';
       });
     }
     return h;
@@ -335,16 +349,11 @@
     h += '<div class="btns" style="margin-top:12px"><button class="btn sm ghost" data-act="editRental" data-r="' + r.id + '">Edit</button><button class="btn sm ghost" data-act="changeRent" data-r="' + r.id + '">Change rent</button><button class="btn sm ghost" data-act="bulkPay" data-r="' + r.id + '">Past payments</button><button class="btn sm ghost" data-act="settleAll" data-r="' + r.id + '">Settle dues</button>' +
       (st ? '' : '<button class="btn sm danger" data-act="endRental" data-r="' + r.id + '">' + (ended && +r.deposit > 0 ? 'Settle deposit' : 'End tenancy') + '</button>') + '<button class="btn sm danger" data-act="delRental" data-r="' + r.id + '">Delete</button></div></div>';
     if (st) h += depositCard(r, st);
-    var past = ds.filter(function (d) { return d.status !== 'future'; }), keep = showAll ? past : past.filter(function (d, i) { return i >= past.length - 6 || d.status !== 'paid'; });
-    h += '<h3 class="sech">Rent</h3><div class="card tablewrap"><table><tbody>' +
-      (keep.length ? keep.slice().reverse().map(function (d) {
-        var pays = (r.payments || []).filter(function (p) { return p.key === d.key; }).sort(function (a, b) { return a.date < b.date ? 1 : -1; }), lastP = pays[0];
-        var info = d.status === 'paid' ? (lastP ? (lastP.waived ? 'Settled' : lastP.method === 'Deposit' ? 'From deposit' : lastP.method === 'Token' && pays.length === 1 ? 'Token ' + C.shortDate(lastP.date) : 'Paid ' + C.shortDate(lastP.date)) : '') : d.partial ? money(d.paid) + ' paid' : '';
-        return '<tr><td>' + esc(C.monthLabel(d.key)) + '<div class="tiny muted">due ' + esc(C.shortDate(d.dueDate)) + '</div></td><td class="r">' + money(d.amount) + '</td><td>' + pillFor(d) + (info ? '<div class="tiny muted">' + esc(info) + '</div>' : '') + '</td><td class="right nowrap">' +
-          (d.status === 'paid' ? '' : '<button class="btn sm olive" data-act="pay" data-r="' + r.id + '" data-k="' + d.key + '">Paid</button> ') + ((d.status === 'overdue' || d.status === 'due') ? '<button class="btn sm ghost" data-act="remind" data-r="' + r.id + '" data-k="' + d.key + '">Remind</button> ' : '') +
-          '<button class="btn sm ghost" data-act="editMonth" data-r="' + r.id + '" data-k="' + d.key + '" aria-label="Change this month">⋯</button></td></tr>';
-      }).join('') : '<tr><td class="muted">No rent due yet.</td></tr>') + '</tbody></table>' +
-      (past.length > keep.length || showAll ? '<div style="margin-top:8px"><button class="btn sm ghost" data-act="toggleAll">' + (showAll ? 'Show less' : 'Show all ' + past.length + ' months') + '</button></div>' : '') + '</div>';
+    var past = ds.filter(function (d) { return d.status !== 'future'; }), nextDue = ds.find(function (d) { return d.status === 'future'; }), shown = showAll ? past : past.slice(-12);
+    if (nextDue && !showAll) shown = shown.slice(-11).concat([nextDue]);
+    var multiYear = shown.length && shown[0].key.slice(0, 4) !== shown[shown.length - 1].key.slice(0, 4);
+    h += '<h3 class="sech">Rent</h3><div class="card">' + (shown.length ? tilesHTML(r, shown, multiYear) : '<div class="muted small">No rent due yet.</div>') +
+      '<div class="tiny muted" style="margin-top:8px"><span class="cell paid sm">\u2713</span> paid &nbsp; <span class="cell part sm">\u00bd</span> part &nbsp; <span class="cell late sm">!</span> late &nbsp; Tap a month for actions.' + (past.length > 12 ? ' <button class="btn sm ghost" style="margin-left:8px" data-act="toggleAll">' + (showAll ? 'Show last 12' : 'All ' + past.length + ' months') + '</button>' : '') + '</div></div>';
     var fus = (r.followups || []).slice(-3).reverse();
     h += '<h3 class="sech">Follow-ups</h3><div class="card">' + (fus.length ? '<div class="log">' + fus.map(function (x) { return '<div><div class="d">' + esc(C.shortDate(x.date)) + ' · ' + esc(x.channel) + (x.promiseDate ? ' · promised ' + esc(C.shortDate(x.promiseDate)) : '') + '</div>' + esc(x.note || '') + '</div>'; }).join('') + '</div>' : '<div class="muted small" style="margin-bottom:8px">Nothing logged yet.</div>') + '<button class="btn sm ghost" data-act="logfu" data-r="' + r.id + '">+ Log a call or note</button></div>';
     var yr = Money.figures(S, t.slice(0, 4) + '-01-01', t.slice(0, 4) + '-12-31', t, grace()), fr = yr.byFlat[f.id] || { expenses: 0 };
@@ -853,7 +862,7 @@
     toggleAll: function () { showAll = !showAll; render(); },
     endRental: function (d) { endForm(d.r); },
     delRental: function (d) { confirmBox('Delete this rental with all its payments, follow-ups and agreement? This cannot be undone.', 'Delete rental', function () { S.rentals = S.rentals.filter(function (r) { return r.id !== d.r; }); location.hash = '#/flats'; }); },
-    ry: function (d) { rentYear = String(+rentYear + +d.n); render(); }, rentFlat: function (d) { rentFlat = d.f || ''; render(); }, rentCell: function (d) { var r = rentalById(d.r), x = C.schedule(r, today(), grace()).find(function (y) { return y.key === d.k; }); if (x && x.status === 'paid') monthSheet(d.r, d.k); else payForm(d.r, d.k); },
+    ry: function (d) { rentYear = String(+rentYear + +d.n); render(); }, rentFlat: function (d) { rentFlat = d.f || ''; render(); }, waNowClose: function (d) { closeDlg(); waNow(d.r, d.k); }, rentCell: function (d) { monthActions(d.r, d.k); }, rentCellOld: function (d) { var r = rentalById(d.r), x = C.schedule(r, today(), grace()).find(function (y) { return y.key === d.k; }); if (x && x.status === 'paid') monthSheet(d.r, d.k); else payForm(d.r, d.k); },
     sample: sample,
     print: function () { window.print(); },
     pdf: function (d) { var r = rentalById(d.r); download(buildPdf(r), pdfName(r)); toast('PDF saved to your Downloads.'); },
